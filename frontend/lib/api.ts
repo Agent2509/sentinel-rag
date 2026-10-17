@@ -1,6 +1,7 @@
 import type {
   DocumentsPayload,
   EvalRow,
+  EvalStatus,
   Health,
   SSEEvent,
   Strategy,
@@ -96,6 +97,13 @@ export const getEval = async () =>
     ...r,
     correction_enabled: bool01(r.correction_enabled),
   }));
+export const getEvalStatus = () => getJSON<EvalStatus>("/api/eval/status");
+
+export async function runEval(): Promise<{ started: boolean }> {
+  const res = await fetch(`${API_BASE}/api/eval/run`, { method: "POST" });
+  if (!res.ok) throw new Error(await errorDetail(res));
+  return (await res.json()) as { started: boolean };
+}
 export const getTraces = async (limit = 20) =>
   (await getJSON<TraceSummary[]>(`/api/traces?limit=${limit}`)).map((t) => ({
     ...t,

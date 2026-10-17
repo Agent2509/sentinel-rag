@@ -132,6 +132,18 @@ Full matrix on the 50-doc demo corpus: **6 of 6 combos**, `n = 10` questions per
 
 `source_doc_hit_rate` is 1.00 for both fixed runs and 0.90 for the other four. Semantic retrieval is **much faster**, and its precision/recall look low only because the non-LLM proxy compares against whole-document reference contexts — those two columns are **not** a quality ranking across chunkers.
 
+### Run the evaluation from the UI
+
+With the eval venv installed, open **Scoreboard → Evaluate corpus**. The job
+generates one question per document, runs the 3 × 2 matrix in the background
+through the isolated interpreter, and reloads the table when it finishes.
+Progress, failures and the job log path are shown on the page.
+
+It needs at least 5 documents (`EVAL_MIN_DOCS`), evaluates `EVAL_ROWS` questions
+per combo (default 10), and uses `EVAL_PYTHON` (default `.venv-eval/bin/python`).
+Results are stamped with the corpus version they were measured on; uploading or
+deleting documents mid-run leaves them correctly labelled as older data.
+
 <details>
 <summary>Method and caveats</summary>
 

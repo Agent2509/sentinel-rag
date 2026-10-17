@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { FlaskConical, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { ScoreBar } from "@/components/score-chart";
-import { getEval } from "@/lib/api";
-import type { EvalRow } from "@/lib/types";
+import { getEval, getEvalStatus, runEval } from "@/lib/api";
+import type { EvalRow, EvalStatus } from "@/lib/types";
 
 type MetricKey =
   | "faithfulness"
@@ -78,6 +80,10 @@ function bestPerMetric(groups: Group[]) {
 export default function Scoreboard() {
   const [rows, setRows] = useState<EvalRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<EvalStatus | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const wasRunning = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -88,6 +94,45 @@ export default function Scoreboard() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const poll = () => {
+      getEvalStatus()
+        .then((s) => {
+          if (!active) return;
+          setStatus(s);
+          if (wasRunning.current && !s.running) {
+            getEval()
+              .then((data) => active && setRows(data))
+              .catch(() => {});
+          }
+          wasRunning.current = s.running;
+        })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 3000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  async function startEval() {
+    setStarting(true);
+    setEvalError(null);
+    try {
+      await runEval();
+      const s = await getEvalStatus();
+      setStatus(s);
+      wasRunning.current = s.running;
+    } catch (e) {
+      setEvalError((e as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  }
 
   const groups = rows ? group(rows) : [];
   const best = bestPerMetric(groups);
@@ -102,15 +147,68 @@ export default function Scoreboard() {
         title="Scoreboard"
         description="RAGAS metrics per chunking strategy, averaged over the evaluation set."
       >
-        {rows && rows.length > 0 && rows[0].corpus_version && (
-          <span
-            className="rounded-md border border-border/60 px-2 py-1 font-mono text-[11px] text-muted-foreground"
-            title={rows[0].corpus_version}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={startEval}
+            disabled={
+              starting ||
+              !status ||
+              status.running ||
+              status.corpus_size < status.min_docs
+            }
           >
-            corpus v{rows[0].corpus_version.slice(0, 10)}
-          </span>
-        )}
+            {starting || status?.running ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FlaskConical className="h-4 w-4" />
+            )}
+            {status?.running ? "Evaluating…" : "Evaluate corpus"}
+          </Button>
+          {rows && rows.length > 0 && rows[0].corpus_version && (
+            <span
+              className="rounded-md border border-border/60 px-2 py-1 font-mono text-[11px] text-muted-foreground"
+              title={rows[0].corpus_version}
+            >
+              corpus v{rows[0].corpus_version.slice(0, 10)}
+            </span>
+          )}
+        </div>
       </PageHeader>
+
+      {status && status.corpus_size < status.min_docs && !status.running && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          Evaluation needs at least {status.min_docs} documents; you have{" "}
+          {status.corpus_size}. Add more on the Documents page.
+        </p>
+      )}
+
+      {(starting || status?.running) && (
+        <p
+          role="status"
+          className="mb-4 flex items-center gap-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {status?.stage ?? "starting"}
+          {status?.message ? ` — ${status.message}` : ""}
+        </p>
+      )}
+
+      {status?.stage === "done" && !status.running && status.message && (
+        <p className="mb-4 text-xs text-muted-foreground">{status.message}</p>
+      )}
+
+      {status?.stage === "error" && status.error && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          Evaluation failed: {status.error}
+        </p>
+      )}
+
+      {evalError && (
+        <p role="alert" className="mb-4 text-sm text-destructive">
+          {evalError}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">
@@ -128,7 +226,9 @@ export default function Scoreboard() {
       {rows !== null && rows.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            No evaluation rows yet. Run the eval on the backend:
+            No evaluation rows yet. Click <strong>Evaluate corpus</strong> to
+            generate a test set from the current documents and run the matrix, or
+            run it on the backend:
             <code className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
               python -m eval.run_ragas
             </code>
@@ -166,8 +266,7 @@ export default function Scoreboard() {
               className="mb-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
             >
               Partial matrix: {groups.length} of 6 strategy × correction combos
-              measured so far. The rest are pending an honest run — treat this as
-              work in progress, not a finished benchmark.
+              measured. Re-run the evaluation to fill the rest.
             </p>
           )}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

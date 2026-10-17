@@ -62,5 +62,12 @@ API_PORT = int(os.environ.get("API_PORT", "8000"))
 FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 MAX_CONCURRENT_PIPELINES = 2
 
+# Manual evaluation job (spawns the isolated eval venv; see requirements-eval.txt)
+EVAL_PYTHON = os.environ.get(
+    "EVAL_PYTHON", str(BASE_DIR / ".venv-eval" / "bin" / "python")
+)
+EVAL_MIN_DOCS = int(os.environ.get("EVAL_MIN_DOCS", "5"))
+EVAL_ROWS = int(os.environ.get("EVAL_ROWS", "10"))
+
 # Input guard
 MAX_QUERY_CHARS = 2000

@@ -81,6 +81,17 @@ export interface TraceSummary {
   retries: number;
 }
 
+export interface EvalStatus {
+  running: boolean;
+  stage: string;
+  message: string | null;
+  error: string | null;
+  corpus_version: string | null;
+  started_at: string | null;
+  corpus_size: number;
+  min_docs: number;
+}
+
 export interface EvalRow {
   id: string;
   strategy: Strategy;

@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app import config, documents, embeddings, ingest, pipeline, trace_store
+from app import config, documents, embeddings, eval_job, ingest, pipeline, trace_store
 from app.chunkers import token_count
 from app.store import indexes_exist
 
@@ -277,6 +277,19 @@ def corpus():
 @app.get("/api/eval")
 def eval_results():
     return trace_store.list_eval_results()
+
+
+@app.get("/api/eval/status")
+def eval_status():
+    return eval_job.status()
+
+
+@app.post("/api/eval/run", status_code=202)
+def eval_start():
+    ok, code, message = eval_job.start()
+    if not ok:
+        raise HTTPException(code, message)
+    return {"started": True}
 
 
 def main() -> None:
