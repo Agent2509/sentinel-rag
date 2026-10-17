@@ -33,7 +33,7 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **Citations** | LLM emits inline `[1]`, `[2]`; **backend parses, drops out-of-range refs, remaps to retrieved chunks**, then renders list below answer |
 | **Trace streaming** | SSE (Server-Sent Events) via `/api/query`. First event carries `trace_id`. Client disconnect stops the pipeline between steps (an in-flight LLM call is not cancelled). |
 | **Persistence** | SQLite (`sqlite3` stdlib, WAL mode, one connection per request); one table: `traces` |
-| **Concurrency** | Blocking embedder + sync LLM calls run via `asyncio.to_thread`; Strategy Lab dual pipelines capped by one `asyncio.Semaphore` (Groq free-tier) |
+| **Concurrency** | Blocking embedder + sync LLM calls run via `asyncio.to_thread`; Compare dual pipelines capped by one `asyncio.Semaphore` (Groq free-tier) |
 | **Startup** | Warm embedder and assert indexes exist. If missing → log instructions and have `/api/query` return 503; `/api/health` reports the reason. |
 | **Config** | `config.py` module — single source of truth for all constants |
 | **Secrets** | `.env` file with `GROQ_API_KEY` (and `GROQ_API_KEY_2` for key pooling) |
@@ -45,10 +45,10 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **LLM client** | Thin helper around the `openai` SDK (both providers are OpenAI-compatible) — `client(base_url, api_key)`. No wrapper class. |
 | **Chunkers** | Three duck-typed functions with the same signature `chunk(text, doc_title) -> list[Chunk]`. No ABC/base class. |
 | **Dark mode** | Default dark, with light mode toggle |
-| **Trace View layout** | Two-column: left = pipeline steps (vertical flowchart), right = query input + answer panel |
+| **Ask layout** | Two-column: left = pipeline steps (vertical flowchart), right = query input + answer panel |
 | **Trace animation** | 300ms stagger, slide-in, amber pulse for retries, green glow for success. **Respects `prefers-reduced-motion`; state also conveyed by icon + text, not color alone.** |
 | **Accessibility** | Trace region is `aria-live="polite"`; nav and toggles keyboard-reachable with labels; text contrast ≥ 4.5:1 in both themes |
-| **Strategy Lab** | Live queries (on-the-fly), 2 side-by-side result panels with dropdown selectors |
+| **Compare** | Live queries (on-the-fly), 2 side-by-side result panels with dropdown selectors |
 | **Branding** | "Sentinel RAG" wordmark + radar/shield icon in nav |
 | **Error handling** | Router parse fail → default `complex`; Grader parse fail → error sentinel (distinct from score 0.0, forces fallback rather than burning retries); HyDE fail → skip straight to fallback; LLM call fail → retry once, then `final_status: "error"` |
 | **Final statuses** | `success` \| `not_found` \| `error` |
@@ -143,8 +143,8 @@ sentinel-rag/
 │   ├── next.config.ts            # Plain Next.js config (no API proxy — CORS handles it)
 │   ├── app/
 │   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 3 links, dark-mode toggle, health dot)
-│   │   ├── page.tsx              # Screen 1: Trace View — SSE pipeline animation, query + answer panel
-│   │   ├── strategy/page.tsx     # Screen 2: Strategy Lab — dropdowns, side-by-side live comparison
+│   │   ├── page.tsx              # Screen 1: Ask — SSE pipeline animation, query + answer panel
+│   │   ├── strategy/page.tsx     # Screen 2: Compare — dropdowns, side-by-side live comparison
 │   │   ├── documents/page.tsx    # Screen 3: Documents — upload/list/delete + live reindex status
 │   │   ├── error.tsx             # Route error boundary
 │   │   └── not-found.tsx         # 404 page
@@ -351,7 +351,7 @@ python -m app.verify              # Queries all indexes, prints top chunks
 |---|---|---|
 | **M2** | Full pipeline from CLI | Hybrid retrieval + RRF, Router, Grader, HyDE, Pipeline with full JSON trace. Test 5 questions (incl. 1 unanswerable, 1 HyDE trigger). |
 | **M3** | API server | FastAPI endpoints, SSE streaming (first-event `trace_id`, disconnect stops between steps), SQLite (WAL) persistence, startup warm-up + index guard, health endpoint |
-| **M5** | Frontend | Trace View, Strategy Lab. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
+| **M5** | Frontend | Ask, Compare. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
 | **M7** | Document upload | `documents.py` (upload/list/delete, hash dedupe, path-traversal safe), `/api/documents` + `/api/reindex`, live background reindex, Documents page |
 | **M6** | Polish | README, `demo.md` click-path, deck + guide generators |
 

@@ -30,7 +30,7 @@ interface PanelState {
 }
 
 export default function StrategyLab() {
-  const [query, setQuery] = useState("What is LoRA?");
+  const [query, setQuery] = useState("");
   const [left, setLeft] = useState<Strategy>("fixed");
   const [right, setRight] = useState<Strategy>("semantic");
   const [leftCorrection, setLeftCorrection] = useState(true);
@@ -53,7 +53,7 @@ export default function StrategyLab() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
-        title="Strategy Lab"
+        title="Compare"
         description="Run one query through two chunking strategies side by side."
       />
 
@@ -65,7 +65,7 @@ export default function StrategyLab() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               maxLength={2000}
-              placeholder="Ask something…"
+              placeholder="Ask something about your documents…"
               className="h-10 flex-1 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
             <Button onClick={runBoth} disabled={running || !query.trim()}>

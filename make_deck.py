@@ -388,10 +388,10 @@ notes(s, "Citation Validation:\n"
          "- In our UI, clicking [1] highlights the exact chunk card on the left.")
 
 # ==============================================================================
-# SLIDE 13: UI — Trace View
+# SLIDE 13: UI — Ask
 # ==============================================================================
 s = new_slide()
-header(s, "live ui", "Trace View: Observable Pipeline Telemetry")
+header(s, "live ui", "Ask: Observable Pipeline Telemetry")
 if Path(SHOTS + "/deck-trace-loaded.png").exists():
     s.shapes.add_picture(SHOTS + "/deck-trace-loaded.png", Inches(0.6), Inches(1.6), width=Inches(8.5))
 tf = textbox(s, Inches(9.35), Inches(1.75), Inches(3.4), Inches(5.2))
@@ -405,19 +405,19 @@ for line in [
     "Persistent trace drawer to inspect and replay historical queries.",
 ]:
     para(tf, [("\u25aa  ", {"color": ACCENT}), (line, {"size": 13})], space_after=9)
-notes(s, "Explain the Trace View:\n"
+notes(s, "Explain the Ask:\n"
          "- This is the primary user interface.\n"
          "- As the backend processes the query, each step animates into view.\n"
          "- If the Grader triggers a HyDE retry, the card pulses in amber to show self-correction in action.\n"
          "- The answer panel highlights exact grounding citations.")
 
 # ==============================================================================
-# SLIDE 14: UI — Strategy Lab & Documents
+# SLIDE 14: UI — Compare & Documents
 # ==============================================================================
 s = new_slide()
-header(s, "live ui", "Strategy Lab & Live Corpus Ingestion")
+header(s, "live ui", "Compare & Live Corpus Ingestion")
 cards = [
-    ("Strategy Lab (/strategy)", "Runs identical queries simultaneously across two different chunking configurations side-by-side. Allows engineers to see chunk boundary differences directly in real time.", ACCENT),
+    ("Compare (/strategy)", "Runs identical queries simultaneously across two different chunking configurations side-by-side. Allows engineers to see chunk boundary differences directly in real time.", ACCENT),
     ("Document Manager (/documents)", "Upload custom .md, .txt, or .pdf files. Triggers an atomic background re-indexing pass without shutting down the server. List, inspect, or delete corpus files.", AMBER),
 ]
 for i, (t, b, c) in enumerate(cards):
@@ -428,7 +428,7 @@ for i, (t, b, c) in enumerate(cards):
     para(tf, t, size=18, color=c, bold=True, first=True, space_after=8)
     para(tf, b, size=14, color=TEXT, space_after=0)
 notes(s, "Highlight the other two screens:\n"
-         "- Strategy Lab: Excellent for debugging. You can run 'Explain Backpropagation' on Fixed vs Hierarchical side by side.\n"
+         "- Compare: Excellent for debugging. You can run 'Explain Backpropagation' on Fixed vs Hierarchical side by side.\n"
          "- Documents Page: Shows that the corpus is dynamic. Users can drop a PDF or markdown file and watch the server rebuild indexes in seconds.")
 
 # ==============================================================================
@@ -440,7 +440,7 @@ scenarios = [
     ("Act 1: Fast Lookup", "'What is LoRA?'", "Routes to 'simple', instant retrieval, grader score > 0.9, fast grounded answer with citations."),
     ("Act 2: Hero Self-Correction", "'How does attention compare to recurrence for long range dependencies?'", "Triggers Grader retry (<0.6). Amber HyDE pulse appears, synthesizes hypothetical doc, re-retrieves, and recovers."),
     ("Act 3: Graceful Fallback", "'What is the corporate revenue of Microsoft in 2024?'", "Out of domain. Retries exhaust cleanly, admits uncertainty, displays closest chunks. Zero hallucination."),
-    ("Act 4: Strategy Comparison", "'Why do transformers use layer norm instead of batch norm?'", "Run in Strategy Lab. Shows how Hierarchical parent chunks preserve complete context vs Fixed chunk truncation."),
+    ("Act 4: Strategy Comparison", "'Why do transformers use layer norm instead of batch norm?'", "Run in Compare. Shows how Hierarchical parent chunks preserve complete context vs Fixed chunk truncation."),
 ]
 for i, (act, q, outcome) in enumerate(scenarios):
     y = Inches(1.75 + i * 1.32)
@@ -455,7 +455,7 @@ notes(s, "The Demo Walkthrough:\n"
          "1. Query 1 demonstrates the fast path: Instant retrieval and citation.\n"
          "2. Query 2 demonstrates our flagship feature: Self-correction. The amber card will pulse on screen.\n"
          "3. Query 3 proves no hallucinations: The system gracefully admits it cannot answer out-of-domain financial data.\n"
-         "4. Query 4 demonstrates the Strategy Lab side-by-side comparison.")
+         "4. Query 4 demonstrates the Compare side-by-side comparison.")
 
 # ==============================================================================
 # SLIDE 16: Engineering Reliability

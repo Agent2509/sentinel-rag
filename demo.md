@@ -23,9 +23,9 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 
 ## 1. Demo Flow (10 Minutes Total)
 
-### Act 1: The Fast Path (Trace View — 2 mins)
+### Act 1: The Fast Path (Ask — 2 mins)
 * **Goal:** Prove fast routing and hybrid retrieval + RRF.
-* **Page:** `http://localhost:3000/` (Trace View)
+* **Page:** `http://localhost:3000/` (Ask)
 * **Settings:** Strategy = `semantic`, Self-Correction = `ON`.
 * **Query:**
   ```text
@@ -43,7 +43,7 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 
 ### Act 2: The Self-Correction Loop (The "Hero" Feature — 3 mins)
 * **Goal:** Show the self-correcting HyDE retry loop (Amber pulse -> Recovery).
-* **Page:** `http://localhost:3000/` (Trace View)
+* **Page:** `http://localhost:3000/` (Ask)
 * **Settings:** Strategy = `semantic`, Self-Correction = `ON`.
 * **Query:**
   ```text
@@ -64,7 +64,7 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 
 ### Act 3: Graceful Fallback / Unanswerable (2 mins)
 * **Goal:** Prove no hallucination on out-of-domain input.
-* **Page:** `http://localhost:3000/` (Trace View)
+* **Page:** `http://localhost:3000/` (Ask)
 * **Settings:** Strategy = `fixed`, Self-Correction = `ON`.
 * **Query:**
   ```text
@@ -82,7 +82,7 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 
 ### Act 4: Strategy Comparison Lab (1.5 mins)
 * **Goal:** Compare chunking strategies side by side on identical queries.
-* **Page:** Click **Strategy Lab** in navbar (`http://localhost:3000/strategy`).
+* **Page:** Click **Compare** in navbar (`http://localhost:3000/strategy`).
 * **Settings:** Left = `fixed`, Right = `hierarchical`.
 * **Query:**
   ```text

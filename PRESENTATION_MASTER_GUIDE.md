@@ -183,22 +183,22 @@ Use this section while practicing your presentation with `Sentinel_RAG.pptx`.
   > *"Citations are verified, not assumed. The generator must provide inline markers like [1] and [2]. Our backend parses these, eliminates out-of-range citations, deduplicates, and renumbers them in appearance order. If the model outputs an answer with zero valid citations, the entire answer is rejected. In our web UI, clicking citation [1] automatically scrolls to and highlights the backing source chunk."*
 * **Transition:** *"Let me share a real engineering war story from building this evaluation pipeline."*
 
-### Slide 11: UI — Trace View
-* **Visual:** Screenshot of the Trace View with live SSE steps.
+### Slide 11: UI — Ask
+* **Visual:** Screenshot of the Ask with live SSE steps.
 * **What to Say:**
-  > *"This is our primary interface: Trace View. As a query executes, steps stream in real time over SSE. You see latency breakdowns for routing, retrieval, grading, and generation. When self-correction triggers, the badge pulses amber. When generation succeeds, it glows green. And citations are completely interactive."*
+  > *"This is our primary interface: Ask. As a query executes, steps stream in real time over SSE. You see latency breakdowns for routing, retrieval, grading, and generation. When self-correction triggers, the badge pulses amber. When generation succeeds, it glows green. And citations are completely interactive."*
 * **Transition:** *"Beyond single queries, we built two comparative engineering tools."*
 
-### Slide 12: UI — Strategy Lab and Documents
-* **Visual:** Cards for Strategy Lab and Document Manager.
+### Slide 12: UI — Compare and Documents
+* **Visual:** Cards for Compare and Document Manager.
 * **What to Say:**
-  > *"In Strategy Lab, engineers can run identical queries against two strategies side by side to visualize chunk boundary effects. In the Document Manager, users can upload PDFs or markdown files and watch the server re-index in the background."*
+  > *"In Compare, engineers can run identical queries against two strategies side by side to visualize chunk boundary effects. In the Document Manager, users can upload PDFs or markdown files and watch the server re-index in the background."*
 * **Transition:** *"Let's walk through the exact live demo execution."*
 
 ### Slide 13: Live Demo Execution Script
 * **Visual:** The 4 demonstration scenarios from demo.md.
 * **What to Say:**
-  > *"In our live demo today, we're executing four distinct scenarios: First, 'What is LoRA?' demonstrates instant simple routing and hybrid search. Second, our hero query compares attention mechanisms to recurrence, triggering the amber HyDE self-correction loop. Third, an out-of-domain financial query proves graceful fallback without hallucination. Fourth, our Strategy Lab runs the same query through two chunking strategies side by side so the difference is visible."*
+  > *"In our live demo today, we're executing four distinct scenarios: First, 'What is LoRA?' demonstrates instant simple routing and hybrid search. Second, our hero query compares attention mechanisms to recurrence, triggering the amber HyDE self-correction loop. Third, an out-of-domain financial query proves graceful fallback without hallucination. Fourth, our Compare runs the same query through two chunking strategies side by side so the difference is visible."*
 * **Transition:** *"Let's talk about the production engineering that keeps this demo crash-proof."*
 
 ### Slide 14: Engineering Reliability

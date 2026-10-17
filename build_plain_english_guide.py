@@ -412,12 +412,12 @@ html_content = f"""<!DOCTYPE html>
 <h2>Chapter 5: The Visual Tour (Screenshots of the Live UI)</h2>
 <p>Here are the real screens running on your laptop at <code>http://localhost:3000</code>:</p>
 
-<h3>Screen 1: Trace View (/ &mdash; The Main Dashboard)</h3>
+<h3>Screen 1: Ask (/ &mdash; The Main Dashboard)</h3>
 <p>When you ask a question, the pipeline animates step-by-step. Notice the per-step timings, the Router classification, the Grader score, and the verified answer panel.</p>
 
 <div class="figure">
-  <img src="{img_trace}" alt="Trace View">
-  <div class="caption">Figure 1: Trace View showing the entire pipeline execution live on localhost.</div>
+  <img src="{img_trace}" alt="Ask">
+  <div class="caption">Figure 1: Ask showing the entire pipeline execution live on localhost.</div>
 </div>
 
 <h3>Screen 2: Interactive Grounding (Clickable Citations)</h3>
@@ -429,12 +429,12 @@ html_content = f"""<!DOCTYPE html>
 </div>
 
 <div class="page-break"></div>
-<h3>Screen 3: Strategy Lab (/strategy &mdash; Head-to-Head Comparison)</h3>
+<h3>Screen 3: Compare (/strategy &mdash; Head-to-Head Comparison)</h3>
 <p>Allows you to run the exact same query across two different chunking algorithms at the same time. You can visually prove why Hierarchical chunking gives richer context than Fixed chunking.</p>
 
 <div class="figure">
-  <img src="{img_strategy}" alt="Strategy Lab">
-  <div class="caption">Figure 3: Strategy Lab comparing Fixed Window vs Hierarchical chunking side by side.</div>
+  <img src="{img_strategy}" alt="Compare">
+  <div class="caption">Figure 3: Compare comparing Fixed Window vs Hierarchical chunking side by side.</div>
 </div>
 
 <!-- CHAPTER 6 -->

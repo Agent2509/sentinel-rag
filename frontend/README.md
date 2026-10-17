@@ -3,8 +3,8 @@
 Next.js app for the Sentinel RAG lab. Three screens, all talking to the Python
 backend on `http://127.0.0.1:8000`:
 
-- **Trace View** (`/`) — runs one query and streams the pipeline over SSE (fetch-stream), animated step cards, answer + citations.
-- **Strategy Lab** (`/strategy`) — one query on two chunking strategies side by side.
+- **Ask** (`/`) — runs one query and streams the pipeline over SSE (fetch-stream), animated step cards, answer + citations.
+- **Compare** (`/strategy`) — one query on two chunking strategies side by side.
 - **Documents** (`/documents`) — upload `.md`/`.txt`/`.pdf`, list, delete, reindex.
 
 See the [root README](../README.md) for the full design and backend setup.

@@ -11,11 +11,11 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 
 ## Screenshots
 
-![Trace View — a live run: 2.97 s, grounded answer with clickable citations](docs/screenshots/ui-trace-success.png)
+![Ask — a live run: 2.9 s, grounded answer with clickable citations](docs/screenshots/ui-trace-success.png)
 
-| Strategy Lab — side-by-side + delta strip | Light theme |
+| Compare — side-by-side + delta strip | Light theme |
 |---|---|
-| ![Strategy Lab](docs/screenshots/ui-strategy-delta.png) | ![Trace View in light mode](docs/screenshots/ui-trace-light.png) |
+| ![Compare](docs/screenshots/ui-strategy-delta.png) | ![Ask in light mode](docs/screenshots/ui-trace-light.png) |
 
 ## What it does
 
