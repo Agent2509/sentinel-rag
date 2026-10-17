@@ -112,22 +112,25 @@ uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
 > Re-run to regenerate the matrix; use `--resume` to fill it across free-tier quota
 > resets.
 
-Partial run (`--limit 20`). Groq's free tier rate-limited the run after the first
-combo, so the rest are pending; `python -m eval.run_ragas --limit 20 --resume` fills
-them in across quota resets.
+Partial run (`--limit 10`, 3 of 6 combos). Measured with **`openai/gpt-oss-20b`** for both
+pipeline and judge: the `gpt-oss-120b` free-tier quota was exhausted, and Groq's limits are
+**account-wide**, so extra keys do not add headroom. Groq throttles the matrix partway, so
+the harness aborts cleanly and keeps what it has; finish it later with:
+
+```bash
+.venv-eval/bin/python -m eval.run_ragas --limit 10 --resume \
+  --pipeline-model openai/gpt-oss-20b --judge-model openai/gpt-oss-20b
+```
 
 | Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
 |---|---|---|---|---|---|---|
-| fixed | on  | —¹ | 0.708 | 0.975 | 1.000 | — |
-| fixed | off | _pending_ | | | | |
-| hierarchical | on  | _pending_ | | | | |
+| fixed | on  | 1.000 | 0.868 | 0.950 | 1.000 | — |
+| fixed | off | 0.967 | 0.837 | 0.950 | 1.000 | — |
+| hierarchical | on  | —¹ | —¹ | 0.850 | 0.900 | — |
 | hierarchical | off | _pending_ | | | | |
 | semantic | on  | _pending_ | | | | |
 | semantic | off | _pending_ | | | | |
 
-¹ Judge calls hit `RateLimitError`; the number is `null`, not zero. `source_doc_hit`
-was 1.0 and `grader_error_rate` 0.0 for this combo, i.e. retrieval and grading were
-healthy and the shortfall is answered-run coverage, not retrieval.
-
-> Set a dedicated `GROQ_API_KEY_3` for the judge (see `backend/.env.example`) so the
-> pipeline and judge do not contend for one key's quota.
+¹ `n = 10` per combo. `fixed` answered **10/10**; `hierarchical/on` answered 6/10 (3 LLM
+errors, 1 `not_found`) and its judge calls were throttled (`RateLimitError`), so `—` means
+"not judged", not zero. Context metrics are non-LLM and always computed.
