@@ -90,6 +90,22 @@ def get_trace(trace_id: str) -> dict | None:
     return json.loads(row["trace_json"]) if row else None
 
 
+def list_traces(limit: int = 20) -> list[dict]:
+    """Recent trace metadata (no trace_json blob) for the history panel."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, timestamp, query, strategy, correction_enabled,
+                   final_status, latency_ms, retries
+            FROM traces
+            ORDER BY timestamp DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def list_eval_results() -> list[dict]:
     with _connect() as conn:
         rows = conn.execute(

@@ -26,7 +26,12 @@ export interface Step {
   result?: { type: "simple" | "complex"; reason: string };
   query_used?: string;
   chunks?: Chunk[];
-  grade?: { relevant: boolean; score: number | null; reason: string };
+  grade?: {
+    relevant: boolean;
+    score: number | null;
+    reason: string;
+    error?: boolean;
+  };
   hypothetical_document?: string;
   answer?: string;
   citations?: Citation[];
@@ -43,6 +48,7 @@ export interface Trace {
   total_latency_ms: number;
   retries: number;
   fallback_message?: string;
+  fallback_reason?: string;
   closest_chunks?: Chunk[];
   error?: string;
 }
@@ -64,6 +70,18 @@ export interface Health {
   corpus_size: number;
   trace_count: number;
   strategies: Strategy[];
+  grader_threshold?: number;
+}
+
+export interface TraceSummary {
+  id: string;
+  timestamp: string;
+  query: string;
+  strategy: Strategy;
+  correction_enabled: number;
+  final_status: FinalStatus;
+  latency_ms: number;
+  retries: number;
 }
 
 export interface EvalRow {

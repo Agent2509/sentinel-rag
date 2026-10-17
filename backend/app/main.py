@@ -125,6 +125,7 @@ def health():
         "corpus_size": len(list(config.CORPUS_DIR.glob("*.md"))),
         "trace_count": trace_store.count_traces(),
         "strategies": list(config.STRATEGIES),
+        "grader_threshold": config.GRADER_THRESHOLD,
         "reindexing": ingest.is_running(),
         "corpus_version": ingest.version() or ingest.corpus_version(),
     }
@@ -177,6 +178,11 @@ def get_trace(trace_id: str):
     if trace is None:
         raise HTTPException(404, "trace not found")
     return trace
+
+
+@app.get("/api/traces")
+def list_traces(limit: int = 20):
+    return trace_store.list_traces(limit=min(max(limit, 1), 100))
 
 
 @app.get("/api/strategies")

@@ -4,6 +4,8 @@ import type {
   Health,
   SSEEvent,
   Strategy,
+  TraceSummary,
+  Trace,
 } from "./types";
 
 export const API_BASE =
@@ -79,6 +81,10 @@ export const getHealth = (signal?: AbortSignal) =>
   getJSON<Health>("/api/health", signal);
 export const getEval = (signal?: AbortSignal) =>
   getJSON<EvalRow[]>("/api/eval", signal);
+export const getTraces = (limit = 20, signal?: AbortSignal) =>
+  getJSON<TraceSummary[]>(`/api/traces?limit=${limit}`, signal);
+export const getTrace = (id: string, signal?: AbortSignal) =>
+  getJSON<Trace>(`/api/trace/${encodeURIComponent(id)}`, signal);
 
 export const getDocuments = (signal?: AbortSignal) =>
   getJSON<DocumentsPayload>("/api/documents", signal);

@@ -236,9 +236,19 @@ function Panel({
           <AnswerPanel answer={generation.answer} citations={generation.citations} />
         )}
         {!state.running && !generation && state.final && (
-          <p className="text-muted-foreground">
-            {state.final.fallback_message ?? "No confident answer."}
-          </p>
+          <div className="space-y-1">
+            <p className="text-muted-foreground">
+              {state.final.fallback_message ??
+                state.final.error ??
+                "No confident answer."}
+            </p>
+            {state.final.fallback_reason && (
+              <p className="text-xs text-muted-foreground/80">
+                <span className="font-medium text-foreground">Why: </span>
+                {state.final.fallback_reason.replace(/_/g, " ")}
+              </p>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

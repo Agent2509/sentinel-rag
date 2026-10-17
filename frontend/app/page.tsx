@@ -1,17 +1,26 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, Square, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TraceStep } from "@/components/trace-step";
+import { STAGE_META, TraceStep } from "@/components/trace-step";
 import { AnswerPanel } from "@/components/answer-panel";
 import { ChunkCard } from "@/components/chunk-card";
 import { StrategySelector } from "@/components/strategy-selector";
-import { streamQuery } from "@/lib/api";
+import { TraceHistory } from "@/components/trace-history";
+import { getHealth, getTrace, streamQuery } from "@/lib/api";
 import type { Strategy, Step, Trace } from "@/lib/types";
+
+const IDLE_STAGES = [
+  { key: "routing", title: "Route", body: "an LLM labels the query simple or complex" },
+  { key: "retrieval", title: "Retrieve", body: "BM25 + vector search, fused by RRF" },
+  { key: "grading", title: "Grade", body: "an LLM scores whether the chunks can answer it" },
+  { key: "hyde_rewrite", title: "Retry", body: "a low score triggers a HyDE rewrite" },
+  { key: "generation", title: "Answer", body: "grounded generation with citations" },
+];
 
 export default function TraceView() {
   const [query, setQuery] = useState(
@@ -23,7 +32,25 @@ export default function TraceView() {
   const [final, setFinal] = useState<Trace | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [threshold, setThreshold] = useState(0.6);
+  const [highlight, setHighlight] = useState<string | null>(null);
+  const [runCount, setRunCount] = useState(0);
+  const [activeTraceId, setActiveTraceId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getHealth()
+      .then((h) => {
+        if (active && typeof h.grader_threshold === "number") {
+          setThreshold(h.grader_threshold);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const generation = steps.find((s) => s.action === "generation");
   const pipelineSteps = steps.filter((s) => s.action !== "generation");
@@ -33,6 +60,8 @@ export default function TraceView() {
     setSteps([]);
     setFinal(null);
     setError(null);
+    setActiveTraceId(null);
+    setRunCount((c) => c + 1);
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -56,6 +85,32 @@ export default function TraceView() {
 
   function cancel() {
     abortRef.current?.abort();
+  }
+
+  function highlightChunk(chunkId: string | null) {
+    setHighlight(chunkId);
+    if (!chunkId) return;
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`chunk-${CSS.escape(chunkId)}`)
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  }
+
+  async function loadTrace(id: string) {
+    setError(null);
+    try {
+      const trace = await getTrace(id);
+      setActiveTraceId(id);
+      setSteps(trace.steps);
+      setFinal(trace);
+      setQuery(trace.query);
+      setStrategy(trace.strategy);
+      setCorrection(trace.correction_enabled);
+      setHighlight(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }
 
   return (
@@ -112,15 +167,52 @@ export default function TraceView() {
             Pipeline
           </h2>
           <div className="space-y-3" aria-live="polite">
-            {pipelineSteps.map((step) => (
-              <TraceStep key={step.step_number} step={step} />
+            {pipelineSteps.map((step, i) => (
+              <TraceStep
+                key={step.step_number}
+                step={step}
+                index={i}
+                threshold={threshold}
+                onCitation={highlightChunk}
+                highlightedChunk={highlight}
+              />
             ))}
             {running && <Skeleton className="h-24 w-full rounded-lg" />}
             {!running && steps.length === 0 && !error && (
-              <p className="text-sm text-muted-foreground">
-                Run a query to watch the pipeline.
-              </p>
+              <ul className="space-y-2 rounded-lg border border-border/60 p-3">
+                {IDLE_STAGES.map((stage, i) => {
+                  const Icon = STAGE_META[stage.key].icon;
+                  return (
+                    <li key={stage.key} className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs">
+                        {i + 1}
+                      </span>
+                      <span className="flex items-start gap-2">
+                        <Icon
+                          className="mt-0.5 h-4 w-4 text-muted-foreground"
+                          aria-hidden
+                        />
+                        <span>
+                          <span className="block text-sm font-medium">
+                            {stage.title}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {stage.body}
+                          </span>
+                        </span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
+          </div>
+          <div className="mt-6">
+            <TraceHistory
+              onSelect={loadTrace}
+              refreshKey={runCount}
+              activeId={activeTraceId}
+            />
           </div>
         </section>
 
@@ -135,9 +227,10 @@ export default function TraceView() {
                 <AnswerPanel
                   answer={generation.answer}
                   citations={generation.citations}
+                  onCitation={highlightChunk}
                 />
               ) : final && final.final_status !== "success" ? (
-                <FallbackView final={final} />
+                <FallbackView final={final} highlight={highlight} />
               ) : running ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" /> working…
@@ -164,7 +257,16 @@ function StatusBanner({ final }: { final: Trace }) {
         : "destructive";
   return (
     <div className="mb-2 flex items-center gap-2 text-xs">
-      <Badge variant={tone}>{final.final_status}</Badge>
+      <Badge
+        variant={tone}
+        className={
+          final.final_status === "success"
+            ? "shadow-[0_0_10px] shadow-emerald-500/30"
+            : ""
+        }
+      >
+        {final.final_status}
+      </Badge>
       <span className="font-mono text-muted-foreground">
         {final.total_latency_ms} ms · retries {final.retries}
       </span>
@@ -172,15 +274,42 @@ function StatusBanner({ final }: { final: Trace }) {
   );
 }
 
-function FallbackView({ final }: { final: Trace }) {
+const FALLBACK_LABELS: Record<string, string> = {
+  grader_error: "the grader could not be reached",
+  low_score: "the grader scored the retrieved chunks too low",
+  simple_low_score: "a simple query graded too low to answer from",
+  retries_exhausted: "retries were exhausted without a confident score",
+  correction_disabled: "self-correction was off and the first grade was low",
+  hyde_failed: "the HyDE rewrite could not be generated",
+  no_citations: "the answer cited nothing in the retrieved chunks",
+};
+
+function FallbackView({
+  final,
+  highlight,
+}: {
+  final: Trace;
+  highlight: string | null;
+}) {
+  const reason = final.fallback_reason ? FALLBACK_LABELS[final.fallback_reason] : null;
   return (
     <div className="space-y-3">
       <p className="text-muted-foreground">
         {final.fallback_message ?? final.error ?? "No confident answer found."}
       </p>
+      {(reason || final.error) && (
+        <p className="text-xs text-muted-foreground/80">
+          <span className="font-medium text-foreground">Why: </span>
+          {reason ?? final.error}
+        </p>
+      )}
       <div className="space-y-2">
         {final.closest_chunks?.map((chunk) => (
-          <ChunkCard key={chunk.chunk_id} chunk={chunk} />
+          <ChunkCard
+            key={chunk.chunk_id}
+            chunk={chunk}
+            highlighted={highlight === chunk.chunk_id}
+          />
         ))}
       </div>
     </div>

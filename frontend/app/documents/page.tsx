@@ -13,6 +13,7 @@ export default function Documents() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
+  const [filter, setFilter] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -55,6 +56,9 @@ export default function Documents() {
   }
 
   const reindexing = data?.reindexing ?? false;
+  const docs = (data?.documents ?? []).filter((d) =>
+    d.name.toLowerCase().includes(filter.trim().toLowerCase()),
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -129,8 +133,15 @@ export default function Documents() {
           </div>
         </CardHeader>
         <CardContent>
+          <input
+            aria-label="Filter documents"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter by name…"
+            className="mb-3 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
           <ul className="divide-y divide-border/60">
-            {data?.documents.map((d) => (
+            {docs.map((d) => (
               <li key={d.name} className="flex items-center gap-3 py-2 text-sm">
                 <FileText className="h-4 w-4 text-muted-foreground" aria-hidden />
                 <span className="flex-1 truncate">{d.name}</span>
@@ -147,9 +158,11 @@ export default function Documents() {
                 </Button>
               </li>
             ))}
-            {data && data.documents.length === 0 && (
+            {data && docs.length === 0 && (
               <li className="py-6 text-center text-sm text-muted-foreground">
-                No documents yet.
+                {data.documents.length === 0
+                  ? "No documents yet."
+                  : "No documents match that filter."}
               </li>
             )}
           </ul>
