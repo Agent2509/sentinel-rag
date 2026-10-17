@@ -1,0 +1,21 @@
+# Sentinel RAG runtime dependencies (top-level, pinned).
+#
+# Install the CPU build of torch first so pip does not pull the multi-GB CUDA
+# wheel from PyPI:
+#   uv venv .venv --python 3.12
+#   uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
+#   uv pip install --python .venv/bin/python -r requirements.txt
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.0
+python-dotenv==1.2.4
+numpy==2.5.3
+sentence-transformers==6.1.0
+faiss-cpu==1.15.1
+rank-bm25==0.2.2
+tiktoken==0.14.0
+openai==3.27.0
+httpx==0.28.1
+torch==2.14.1
+python-multipart==0.0.32
+pypdf==6.20.0
