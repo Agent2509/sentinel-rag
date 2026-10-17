@@ -225,12 +225,13 @@ def _probe(rows, strategy, correction, metric_sets) -> str | None:
 
 
 def _write(out: str, version: str, summaries: list[dict], records: list[dict]) -> None:
-    json.dump(
-        {"corpus_version": version, "combos": summaries, "records": records},
-        open(out, "w"),
-        indent=2,
-        default=str,
-    )
+    with open(out, "w") as f:
+        json.dump(
+            {"corpus_version": version, "combos": summaries, "records": records},
+            f,
+            indent=2,
+            default=str,
+        )
 
 
 def main() -> None:
@@ -270,7 +271,8 @@ def main() -> None:
     if not Path(args.testset).exists():
         sys.exit(f"Testset missing: {args.testset}. Run python -m eval.build_testset")
 
-    rows = [json.loads(line) for line in open(args.testset) if line.strip()]
+    with open(args.testset) as f:
+        rows = [json.loads(line) for line in f if line.strip()]
     corrections = {"on": [True], "off": [False], "both": [True, False]}[args.correction]
     combos = [(s, c) for s in args.strategies for c in corrections]
 
@@ -306,7 +308,8 @@ def main() -> None:
     done: set = set()
     if args.resume and Path(args.out).exists():
         try:
-            prev = json.load(open(args.out))
+            with open(args.out) as f:
+                prev = json.load(f)
         except Exception:  # noqa: BLE001 - a corrupt artifact just means start fresh
             prev = None
         if prev and prev.get("corpus_version") == version:
@@ -317,7 +320,9 @@ def main() -> None:
         else:
             print("[eval] resume ignored: no matching results.json")
 
-    if not done:
+    if not done and not Path(args.out).exists():
+        # never empty the artifact before the first combo lands: an early abort
+        # (quota, network) must not erase the previous run
         trace_store.init_db()
         _write(args.out, version, summaries, all_records)
 
@@ -349,9 +354,15 @@ def main() -> None:
     except RunAborted as e:
         print(f"\n[eval] ABORTED: {e}")
 
-    # Rebuild the DB to match results.json exactly (resume-safe, no duplicates).
+    # Refresh only combos that produced records: an aborted combo must not
+    # delete the last good rows for that combo.
     trace_store.init_db()
-    trace_store.clear_eval_results()
+    touched = {
+        (r.get("strategy"), 1 if r.get("correction_enabled") else 0)
+        for r in all_records
+    }
+    for strategy, correction in touched:
+        trace_store.delete_eval_results_for(strategy, correction)
     for rec in all_records:
         trace_store.save_eval_result(
             {

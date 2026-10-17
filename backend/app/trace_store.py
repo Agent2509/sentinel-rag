@@ -119,9 +119,12 @@ def count_traces() -> int:
         return int(conn.execute("SELECT COUNT(*) AS c FROM traces").fetchone()["c"])
 
 
-def clear_eval_results() -> None:
+def delete_eval_results_for(strategy: str, correction_enabled: int) -> None:
     with _connect() as conn:
-        conn.execute("DELETE FROM eval_results")
+        conn.execute(
+            "DELETE FROM eval_results WHERE strategy = ? AND correction_enabled = ?",
+            (strategy, correction_enabled),
+        )
 
 
 def save_eval_result(row: dict) -> None:

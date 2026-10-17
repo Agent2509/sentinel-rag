@@ -5,8 +5,10 @@
 import asyncio
 import json
 import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -19,13 +21,41 @@ from app.chunkers import token_count
 from app.store import indexes_exist
 
 
+_reindex_lock = threading.Lock()
+_reindex_pending = False
+_reindex_running = False
+
+
 def _start_reindex() -> bool:
-    """Queue a rebuild in a background thread (serialized behind any running one)."""
+    """Queue a rebuild on a single worker thread.
+
+    Requests arriving during a rebuild coalesce into at most one extra pass
+    instead of queueing N sequential full rebuilds.
+    """
+    global _reindex_pending, _reindex_running
+    with _reindex_lock:
+        _reindex_pending = True
+        if _reindex_running:
+            return True
+        _reindex_running = True
+
     def run() -> None:
-        try:
-            ingest.reindex(wait=True)
-        except Exception as e:  # noqa: BLE001 - background job, log and drop
-            print(f"[reindex] failed: {type(e).__name__}: {e}")
+        global _reindex_pending, _reindex_running
+        while True:
+            with _reindex_lock:
+                if not _reindex_pending:
+                    _reindex_running = False
+                    return
+                _reindex_pending = False
+            try:
+                ingest.reindex(wait=True)
+                app.state.last_reindex_error = None
+            except Exception as e:  # noqa: BLE001 - background job, log and drop
+                app.state.last_reindex_error = f"{type(e).__name__}: {e}"
+                print(f"[reindex] failed: {type(e).__name__}: {e}")
+            finally:
+                # refresh every pass: a rebuild may fix (or break) the indexes
+                app.state.indexes_ok = indexes_exist()
 
     threading.Thread(target=run, daemon=True).start()
     return True
@@ -85,6 +115,10 @@ async def _sse(req: QueryRequest, request: Request):
     )
 
     final: dict | None = None
+    steps: list[dict] = []
+    error: str | None = None
+    disconnected = False
+    t0 = time.perf_counter()
     async with _pipeline_sem:
         gen = pipeline.stream(req.query, req.strategy, req.correction_enabled, trace_id)
         try:
@@ -94,15 +128,38 @@ async def _sse(req: QueryRequest, request: Request):
                     break
                 if await request.is_disconnected():
                     # stops the loop between steps; an in-flight LLM call cannot be cancelled
+                    disconnected = True
                     break
+                if event.get("type") == "step":
+                    steps.append(event["step"])
                 if event.get("type") == "final":
                     final = event["trace"]
                 yield _fmt(event)
+        except Exception as e:  # noqa: BLE001 - never truncate the stream silently
+            error = f"{type(e).__name__}: {e}"
         finally:
             gen.close()
 
-    if final is not None:
-        await asyncio.to_thread(trace_store.save_trace, final)
+    if final is None:
+        # client hung up or the pipeline died outside its own guards: emit/persist
+        # a trace instead of losing the run entirely
+        final = {
+            "trace_id": trace_id,
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "query": req.query,
+            "strategy": req.strategy,
+            "correction_enabled": req.correction_enabled,
+            "steps": steps,
+            "retries": 0,
+            "final_status": "cancelled" if disconnected else "error",
+            "total_latency_ms": int(1000 * (time.perf_counter() - t0)),
+        }
+        if error:
+            final["error"] = error
+        if not disconnected:
+            yield _fmt({"type": "final", "trace_id": trace_id, "trace": final})
+
+    await asyncio.to_thread(trace_store.save_trace, final)
 
 
 @app.post("/api/query")
@@ -127,13 +184,14 @@ def health():
         "strategies": list(config.STRATEGIES),
         "grader_threshold": config.GRADER_THRESHOLD,
         "reindexing": ingest.is_running(),
+        "last_reindex_error": getattr(app.state, "last_reindex_error", None),
         "corpus_version": ingest.version() or ingest.corpus_version(),
     }
 
 
 @app.post("/api/documents")
 async def upload_document(file: UploadFile = File(...)):
-    data = await file.read()
+    data = await file.read(documents.MAX_BYTES + 1)
     if len(data) > documents.MAX_BYTES:
         raise HTTPException(413, f"file exceeds {documents.MAX_BYTES} bytes")
     try:
@@ -142,7 +200,8 @@ async def upload_document(file: UploadFile = File(...)):
     except documents.DuplicateDocument as e:
         raise HTTPException(409, f"duplicate of {e}")
     except Exception as e:  # noqa: BLE001 - bad type, unreadable pdf, empty
-        raise HTTPException(400, f"could not ingest: {e}")
+        print(f"[upload] {file.filename!r} rejected: {type(e).__name__}: {e}")
+        raise HTTPException(400, "could not ingest file")
     return {"name": stored, "reindex_started": _start_reindex()}
 
 

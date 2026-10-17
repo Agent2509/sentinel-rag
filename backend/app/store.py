@@ -1,6 +1,9 @@
-"""Load/save per-strategy FAISS + BM25 indexes and chunk metadata."""
+"""Load/save per-strategy FAISS + BM25 indexes and chunk metadata.
+
+BM25 is rebuilt from chunks.json at load time rather than serialized: it is
+cheap to recompute and avoids pickling executable objects.
+"""
 import json
-import pickle
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,29 +32,29 @@ def tokenize(text: str) -> list[str]:
 def save_strategy(
     name: str, chunks: list[Chunk], vectors: np.ndarray, out_dir: "Path | None" = None
 ) -> None:
-    from rank_bm25 import BM25Okapi
-
     out = out_dir or config.INDEX_DIR
     out.mkdir(parents=True, exist_ok=True)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
     faiss.write_index(index, str(out / f"{name}.faiss"))
 
-    corpus_tokens = [tokenize(c.text) for c in chunks]
-    bm25 = BM25Okapi(corpus_tokens)
-    with open(out / f"{name}.bm25.pkl", "wb") as f:
-        pickle.dump(bm25, f)
-
     with open(out / f"{name}.chunks.json", "w") as f:
         json.dump([c.to_dict() for c in chunks], f)
 
 
 def load_strategy(name: str) -> IndexBundle:
+    from rank_bm25 import BM25Okapi
+
     index = faiss.read_index(str(config.INDEX_DIR / f"{name}.faiss"))
-    with open(config.INDEX_DIR / f"{name}.bm25.pkl", "rb") as f:
-        bm25 = pickle.load(f)
     with open(config.INDEX_DIR / f"{name}.chunks.json") as f:
         chunks = [Chunk.from_dict(d) for d in json.load(f)]
+    bm25 = BM25Okapi([tokenize(c.text) for c in chunks])
+    if index.ntotal != len(chunks):
+        # tripwire: a mismatched pair means a half-completed swap. Fail loudly
+        # rather than returning the wrong chunk for an in-range id.
+        raise RuntimeError(
+            f"{name}: index has {index.ntotal} vectors but {len(chunks)} chunks"
+        )
     return IndexBundle(chunks=chunks, faiss_index=index, bm25=bm25)
 
 
@@ -59,5 +62,5 @@ def indexes_exist() -> bool:
     return all(
         (config.INDEX_DIR / f"{s}.{ext}").exists()
         for s in config.STRATEGIES
-        for ext in ("faiss", "bm25.pkl", "chunks.json")
+        for ext in ("faiss", "chunks.json")
     )

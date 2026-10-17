@@ -105,7 +105,11 @@ def stream(
 
     # 2. initial retrieval
     t = time.perf_counter()
-    chunks = hybrid_search(strategy, query, k_final=k)
+    try:
+        chunks = hybrid_search(strategy, query, k_final=k)
+    except Exception as e:  # noqa: BLE001 - surface as an error trace
+        yield finish("error", error=f"retrieval_failed: {type(e).__name__}")
+        return
     yield step_event(
         "retrieval",
         int(1000 * (time.perf_counter() - t)),
@@ -167,7 +171,15 @@ def stream(
         )
 
         t = time.perf_counter()
-        chunks = hybrid_search(strategy, doc, k_final=config.FINAL_TOP_K, as_query=False)
+        try:
+            chunks = hybrid_search(strategy, doc, k_final=config.FINAL_TOP_K, as_query=False)
+        except Exception as e:  # noqa: BLE001 - surface as an error trace
+            yield finish(
+                "error",
+                error=f"retrieval_failed: {type(e).__name__}",
+                closest_chunks=_public(chunks),
+            )
+            return
         yield step_event(
             "retrieval",
             int(1000 * (time.perf_counter() - t)),
@@ -213,7 +225,8 @@ def run(
     last: dict | None = None
     for event in stream(query, strategy, correction_enabled, trace_id):
         last = event
-    assert last is not None
+    if last is None:
+        raise RuntimeError("pipeline produced no events")
     return last["trace"]
 
 

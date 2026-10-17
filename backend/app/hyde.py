@@ -14,7 +14,6 @@ def rewrite(query: str) -> str:
         {"role": "user", "content": query},
     ]
     doc = llm.chat(
-        "groq",
         config.GROQ_MODEL,
         messages,
         config.HYDE_TEMP,

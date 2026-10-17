@@ -4,7 +4,7 @@ Child text is what gets embedded/retrieved; the parent text is stashed on each
 child (parent_text) so generation can expand to the wider context.
 
 ponytail: parent_text is duplicated per child instead of a side table. Fine for
-a ~40-doc corpus; switch to a parent_id -> text map if the corpus grows.
+a ~50-doc corpus; switch to a parent_id -> text map if the corpus grows.
 """
 from app import config
 from app.chunkers import Chunk, get_encoder

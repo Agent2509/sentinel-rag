@@ -1,4 +1,7 @@
 """Hybrid retrieval: BM25 + FAISS, fused with Reciprocal Rank Fusion."""
+import threading
+from collections.abc import Callable
+
 import numpy as np
 
 from app import config
@@ -6,23 +9,40 @@ from app.embeddings import embed_documents, embed_query
 from app.store import IndexBundle, load_strategy, tokenize
 
 _bundles: dict[str, IndexBundle] = {}
+_lock = threading.Lock()
 
 
 def get_bundle(strategy: str) -> IndexBundle:
-    if strategy not in _bundles:
-        _bundles[strategy] = load_strategy(strategy)
-    return _bundles[strategy]
+    with _lock:
+        if strategy not in _bundles:
+            _bundles[strategy] = load_strategy(strategy)
+        return _bundles[strategy]
 
 
 def reset_cache() -> None:
     """Drop cached indexes so the next query reloads them (after a reindex)."""
-    _bundles.clear()
+    with _lock:
+        _bundles.clear()
+
+
+def swap_indexes(apply: "Callable[[], None]") -> None:
+    """Swap the live index files and drop the cache as one critical section.
+
+    `apply` does the file renames. Holding `_lock` here means a concurrent
+    get_bundle() cannot load a new .faiss against an old chunks.json. Clearing
+    the cache inline (not via reset_cache) avoids re-acquiring a non-reentrant
+    Lock on the same thread.
+    """
+    with _lock:
+        apply()
+        _bundles.clear()
 
 
 def bm25_search(bundle: IndexBundle, query: str, k: int) -> list[int]:
     scores = np.asarray(bundle.bm25.get_scores(tokenize(query)))
-    k = min(k, len(scores))
-    return list(np.argsort(scores)[::-1][:k])
+    order = np.argsort(scores)[::-1][: min(k, len(scores))]
+    # zero score = no lexical match; those hits would only pollute RRF fusion
+    return [int(i) for i in order if scores[i] > 0]
 
 
 def vector_search(

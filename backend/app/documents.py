@@ -53,16 +53,17 @@ def extract_text(filename: str, data: bytes) -> str:
 
 
 def add_document(filename: str, text: str) -> str:
-    content = text.strip()
+    # normalize newlines so CRLF uploads hash the same as their LF twin on disk
+    content = text.replace("\r\n", "\n").replace("\r", "\n").strip()
     if not content:
         raise ValueError("document has no extractable text")
     content += "\n"  # hash exactly what we write, so dedupe matches on disk
     digest = hashlib.sha256(content.encode()).hexdigest()
     for path in config.CORPUS_DIR.glob("*.md"):
-        if hashlib.sha256(path.read_text().encode()).hexdigest() == digest:
+        if hashlib.sha256(path.read_bytes()).hexdigest() == digest:
             raise DuplicateDocument(path.name)
     stored = f"{_safe_stem(filename)}-{uuid.uuid4().hex[:8]}.md"
-    (config.CORPUS_DIR / stored).write_text(content)
+    (config.CORPUS_DIR / stored).write_bytes(content.encode())
     return stored
 
 

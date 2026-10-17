@@ -4,6 +4,7 @@ factory + one chat call covers the provider. No wrapper class.
 import json
 import os
 import re
+import threading
 import time
 from typing import Any
 
@@ -28,6 +29,7 @@ load_dotenv()
 _pool: list[OpenAI] = []
 _rr = 0
 _ready = False
+_pool_lock = threading.RLock()
 
 
 def api_keys() -> list[str]:
@@ -43,33 +45,36 @@ def api_keys() -> list[str]:
 
 def _clients() -> list[OpenAI]:
     global _pool, _ready
-    if not _ready:
-        keys = api_keys()
-        if not keys:
-            raise RuntimeError("Missing GROQ_API_KEY in environment/.env")
-        _pool = [
-            OpenAI(base_url=config.GROQ_BASE_URL, api_key=k, timeout=config.LLM_TIMEOUT)
-            for k in keys
-        ]
-        _ready = True
-    return _pool
+    with _pool_lock:
+        if not _ready:
+            keys = api_keys()
+            if not keys:
+                raise RuntimeError("Missing GROQ_API_KEY in environment/.env")
+            _pool = [
+                OpenAI(base_url=config.GROQ_BASE_URL, api_key=k, timeout=config.LLM_TIMEOUT)
+                for k in keys
+            ]
+            _ready = True
+        return _pool
 
 
 def _evict(client: OpenAI) -> None:
     """Drop a key the API rejected (e.g. revoked) so it stops breaking every call."""
     global _pool
-    _pool = [c for c in _pool if c is not client]
+    with _pool_lock:
+        _pool = [c for c in _pool if c is not client]
 
 
-def get_client(provider: str) -> OpenAI:
-    """Return the next client in the round-robin pool (provider kept for callers)."""
+def get_client() -> OpenAI:
+    """Return the next client in the round-robin pool."""
     global _rr
-    pool = _clients()
-    if not pool:
-        raise RuntimeError("No usable Groq keys left")
-    client = pool[_rr % len(pool)]
-    _rr += 1
-    return client
+    with _pool_lock:
+        pool = _clients()
+        if not pool:
+            raise RuntimeError("No usable Groq keys left")
+        client = pool[_rr % len(pool)]
+        _rr += 1
+        return client
 
 
 def _is_transient(e: Exception) -> bool:
@@ -82,7 +87,12 @@ def _is_transient(e: Exception) -> bool:
 
 
 def _ensure_json_hint(messages: list[Any]) -> list[Any]:
-    if any("json" in str(m.get("content", "")).lower() for m in messages):
+    # only trust system prompts to know the format; a user typing "json" must not
+    # suppress the instruction
+    if any(
+        m.get("role") == "system" and "json" in str(m.get("content", "")).lower()
+        for m in messages
+    ):
         return messages
     return [
         *messages,
@@ -91,7 +101,6 @@ def _ensure_json_hint(messages: list[Any]) -> list[Any]:
 
 
 def chat(
-    provider: str,
     model: str,
     messages: list[Any],
     temperature: float,
@@ -108,7 +117,7 @@ def chat(
     # account's key retries on the next account's key.
     attempts = max(retries + 1, len(_clients()))
     for attempt in range(attempts):
-        client = get_client(provider)
+        client = get_client()
         try:
             resp = client.chat.completions.create(
                 model=model,
@@ -134,7 +143,6 @@ def chat(
 
 
 def chat_json(
-    provider: str,
     model: str,
     messages: list[Any],
     temperature: float,
@@ -149,7 +157,6 @@ def chat_json(
     for attempt in range(retries + 1):
         try:
             raw = chat(
-                provider,
                 model,
                 messages,
                 temperature,
@@ -171,15 +178,21 @@ _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 
 def extract_json(text: str) -> dict:
-    """Parse JSON, tolerating ```json fences and leading chatter."""
+    """Parse JSON, tolerating ```json fences and leading chatter.
+
+    Raises JSONDecodeError on malformed or non-object output so callers retry.
+    """
     match = _FENCE_RE.search(text)
     if match:
         text = match.group(1)
     text = text.strip()
     try:
-        return json.loads(text)
+        parsed = json.loads(text)
     except json.JSONDecodeError:
         start, end = text.find("{"), text.rfind("}")
-        if start != -1 and end != -1:
-            return json.loads(text[start : end + 1])
-        raise
+        if start == -1 or end == -1:
+            raise
+        parsed = json.loads(text[start : end + 1])
+    if not isinstance(parsed, dict):
+        raise json.JSONDecodeError("top-level JSON value is not an object", text, 0)
+    return parsed

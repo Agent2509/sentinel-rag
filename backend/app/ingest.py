@@ -72,16 +72,20 @@ def reindex(wait: bool = False) -> dict:
             vectors = embed_documents([c.text for c in chunks])
             save_strategy(name, chunks, vectors, out_dir=staging)
 
-        # Swap staged files onto the live index. Build failures never reach
-        # here, so the old index survives; a crash mid-swap could still mix
-        # strategies.
-        # ponytail: per-file os.replace, not globally atomic. Fine for a local
-        # lab; use a versioned index dir + pointer file if that ever matters.
-        for name in config.STRATEGIES:
-            for ext in ("faiss", "bm25.pkl", "chunks.json"):
-                os.replace(staging / f"{name}.{ext}", config.INDEX_DIR / f"{name}.{ext}")
+        # Swap staged files onto the live index under the retriever lock, so a
+        # concurrent query can never load a new .faiss against an old
+        # chunks.json. Build failures never reach here, so the old index survives.
+        # ponytail: per-file os.replace, not globally atomic; `swap_indexes`
+        # makes the pair consistent for readers. Use a versioned index dir +
+        # pointer file if a crash mid-swap must never mix strategies.
+        def apply_swap() -> None:
+            for name in config.STRATEGIES:
+                for ext in ("faiss", "chunks.json"):
+                    os.replace(staging / f"{name}.{ext}", config.INDEX_DIR / f"{name}.{ext}")
+                # legacy artifact from the pickle-based store, drop on sight
+                (config.INDEX_DIR / f"{name}.bm25.pkl").unlink(missing_ok=True)
 
-        retriever.reset_cache()
+        retriever.swap_indexes(apply_swap)
         _STATE["version"] = corpus_version()
         return {"documents": len(docs), "version": _STATE["version"]}
     finally:

@@ -19,7 +19,6 @@ def route(query: str) -> dict:
     ]
     try:
         data = llm.chat_json(
-            "groq",
             config.GROQ_MODEL,
             messages,
             config.ROUTER_TEMP,

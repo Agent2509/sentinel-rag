@@ -58,7 +58,7 @@ def main() -> None:
         ]
         try:
             data = llm.chat_json(
-                "groq", config.GROQ_MODEL, messages, 0.3, 1024
+                config.GROQ_MODEL, messages, 0.3, 1024
             )
         except Exception as e:  # noqa: BLE001 - skip a doc rather than abort the run
             print(f"  skip {path.name}: {type(e).__name__}")

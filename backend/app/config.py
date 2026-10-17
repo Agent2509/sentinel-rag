@@ -1,4 +1,5 @@
 """Single source of truth for all tunable constants (mirrors IMPLEMENTATION_PLAN.md)."""
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,8 +35,8 @@ SIMPLE_TOP_K = 3
 # LLM provider (OpenAI-compatible). Router, grader, HyDE and generation all run on
 # Groq's gpt-oss-120b. It is a reasoning model, so max_tokens must leave room for
 # the hidden reasoning tokens before the visible output.
-GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_BASE_URL = os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 ROUTER_TEMP = 0.0
 GRADER_TEMP = 0.0
@@ -56,9 +57,9 @@ GRADER_THRESHOLD = 0.6
 MAX_RETRIES = 2
 
 # API server
-API_HOST = "127.0.0.1"
-API_PORT = 8000
-FRONTEND_ORIGIN = "http://localhost:3000"
+API_HOST = os.environ.get("API_HOST", "127.0.0.1")
+API_PORT = int(os.environ.get("API_PORT", "8000"))
+FRONTEND_ORIGIN = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
 MAX_CONCURRENT_PIPELINES = 2
 
 # Input guard
