@@ -1,5 +1,7 @@
 # Sentinel RAG
 
+[![CI](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml)
+
 > "Most RAG systems fail silently. Mine knows when it's failing, fixes itself, and shows you the receipts."
 
 A locally hosted, self-correcting RAG laboratory: 3 chunking strategies, a hybrid
