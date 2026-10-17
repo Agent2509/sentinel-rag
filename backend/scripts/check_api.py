@@ -10,17 +10,33 @@ import sys
 import tempfile
 from pathlib import Path
 
+import numpy as np
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app import config
 
-config.DB_PATH = Path(tempfile.mkdtemp()) / "sentinel_test.db"
+_tmp = Path(tempfile.mkdtemp())
+config.DB_PATH = _tmp / "sentinel_test.db"
+# Throwaway indexes built from the committed corpus: this check must pass on a
+# fresh clone, where data/index/ is gitignored, without loading the real model.
+config.INDEX_DIR = _tmp / "index"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import embeddings, main  # noqa: E402
+from app import embeddings, ingest, main  # noqa: E402
 
 embeddings.warmup = lambda: None  # do not load the real model in this test
+
+
+def _fake_embed(texts, show_progress=False):
+    # deterministic, but varied: the semantic chunker ranks pairwise similarity
+    return np.random.default_rng(0).random((len(texts), 384), dtype="float32")
+
+
+embeddings.embed_documents = _fake_embed
+ingest.embed_documents = _fake_embed
+ingest.reindex(wait=True)
 
 
 def fake_stream(query, strategy="semantic", correction_enabled=True, trace_id=None):
