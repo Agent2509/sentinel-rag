@@ -21,6 +21,7 @@ from pathlib import Path
 from app import config, ingest, trace_store
 from app.embeddings import embed_documents as _embed_documents
 from app.embeddings import embed_query as _embed_query
+from app.llm import api_keys
 from app.pipeline import run as run_pipeline
 from eval.harness import clean_nan, mean_metrics, trace_diagnostics, trace_to_sample
 
@@ -49,24 +50,12 @@ class BgeEmbeddings:
         return self.embed_documents(texts)
 
 
-def _make_judge(model_override: str | None = None):
-    # Judge on its own key when one exists (GROQ_API_KEY_3); otherwise the
-    # secondary (GROQ_API_KEY_2), which the pipeline phase loads less than the
-    # primary that router/grader/HyDE do.
-    key = (
-        os.getenv("GROQ_API_KEY_3")
-        or os.getenv("GROQ_API_KEY_2")
-        or os.getenv("GROQ_API_KEY")
-    )
+def _make_judge(model_override: str | None = None, key: str | None = None):
+    # One judge per Groq account key. ChatOpenAI binds OPENAI_API_KEY at
+    # construction, so set it immediately before building each judge.
+    key = key or os.getenv("GROQ_API_KEY_3") or os.getenv("GROQ_API_KEY")
     if not key:
         sys.exit("Missing GROQ_API_KEY (set it in backend/.env)")
-    for name in ("GROQ_API_KEY", "GROQ_API_KEY_2"):
-        if os.getenv(name) == key:
-            print(
-                f"[eval] WARNING: judge shares {name} with the pipeline; they will "
-                "contend for the same quota. Set GROQ_API_KEY_3 to isolate the judge."
-            )
-    # llm_factory builds ChatOpenAI internally and reads OPENAI_API_KEY.
     os.environ["OPENAI_API_KEY"] = key
     from ragas import RunConfig
     from ragas.llms import llm_factory
@@ -137,19 +126,17 @@ async def _score_sample(sample, metrics) -> dict:
     return record
 
 
-def _evaluate_combo(
-    rows, strategy, correction, judge, embeddings, limit, concurrency, metrics_mode, pace
-):
+def _evaluate_combo(rows, strategy, correction, metric_sets, limit, concurrency, pace):
     """Score with our own bounded-concurrency loop (no ragas executor).
 
     ragas' executor cuts judge calls off mid-flight on a rate-limited free tier,
     producing NaN score storms. We run a small number at once with a retry each,
-    and abort if the pipeline itself is erroring rather than answering.
+    and abort if the pipeline itself is erroring rather than answering. Judging
+    round-robins across `metric_sets` (one per Groq account), so judge quota
+    multiplies with the number of accounts.
     ponytail: fixed small concurrency. Raise it on a paid tier.
     """
     from ragas.dataset_schema import SingleTurnSample
-
-    metrics = _make_metrics(judge, embeddings, metrics_mode)
 
     samples, latencies, diags = [], [], []
     errors = 0
@@ -176,12 +163,12 @@ def _evaluate_combo(
 
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def one(sample) -> dict:
+    async def one(idx: int, sample) -> dict:
         async with semaphore:
-            return await _score_sample(sample, metrics)
+            return await _score_sample(sample, metric_sets[idx % len(metric_sets)])
 
     async def run_all() -> list[dict]:
-        return await asyncio.gather(*(one(s) for s in samples))
+        return await asyncio.gather(*(one(i, s) for i, s in enumerate(samples)))
 
     records = asyncio.run(run_all())
     for lat, rec, d in zip(latencies, records, diags):
@@ -211,14 +198,14 @@ def _summarize(records: list[dict], requested: int, strategy: str, correction: b
     }
 
 
-def _probe(rows, strategy, correction, judge, embeddings, metrics_mode) -> str | None:
+def _probe(rows, strategy, correction, metric_sets) -> str | None:
     """Run a few rows end-to-end; return a reason to stop, or None if healthy.
 
     This is the guard that stops an LLM outage from being persisted as a result
     (and from clearing an existing good run).
     """
     records = _evaluate_combo(
-        rows[:3], strategy, correction, judge, embeddings, 3, 1, metrics_mode, pace=0
+        rows[:3], strategy, correction, metric_sets, 3, 1, pace=0
     )
     if not records:
         return "no pipeline runs completed (pipeline crashed on every probe row)"
@@ -295,11 +282,19 @@ def main() -> None:
             f"current is {version}. Re-run eval.build_testset if the corpus changed."
         )
 
-    judge = _make_judge(args.judge_model)
     embeddings = BgeEmbeddings()
+    keys = api_keys()
+    if not keys:
+        sys.exit("Missing GROQ_API_KEY (set it in backend/.env)")
+    # One judge per key so judging spreads across separate accounts' quota.
+    metric_sets = [
+        _make_metrics(_make_judge(args.judge_model, key=k), embeddings, args.metrics)
+        for k in keys
+    ]
+    print(f"[eval] pipeline keys: {len(keys)}, judge accounts: {len(metric_sets)}")
 
     # Refuse to clobber a good run with an outage: probe before touching any output.
-    probe_err = _probe(rows, combos[0][0], combos[0][1], judge, embeddings, args.metrics)
+    probe_err = _probe(rows, combos[0][0], combos[0][1], metric_sets)
     if probe_err:
         sys.exit(f"Probe failed: {probe_err}. Fix Groq keys/quota and re-run; nothing changed.")
 
@@ -333,8 +328,8 @@ def main() -> None:
                 continue
             print(f"\n=== {strategy} | correction={correction} | n={requested} ===")
             records = _evaluate_combo(
-                rows, strategy, correction, judge, embeddings, requested,
-                args.concurrency, args.metrics, args.pace,
+                rows, strategy, correction, metric_sets, requested,
+                args.concurrency, args.pace,
             )
             summary = _summarize(records, requested, strategy, correction)
             summaries.append(summary)

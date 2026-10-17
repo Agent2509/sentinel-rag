@@ -113,9 +113,12 @@ uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
 > resets.
 
 Partial run (`--limit 10`, 3 of 6 combos). Measured with **`openai/gpt-oss-20b`** for both
-pipeline and judge: the `gpt-oss-120b` free-tier quota was exhausted, and Groq's limits are
-**account-wide**, so extra keys do not add headroom. Groq throttles the matrix partway, so
-the harness aborts cleanly and keeps what it has; finish it later with:
+pipeline and judge, because the `gpt-oss-120b` free-tier quota was exhausted and the keys
+then available were all on one Groq account (Groq limits are **per account**, not per key).
+Separate accounts do add headroom: the harness pools every `GROQ_API_KEY*` in the
+environment and round-robins across them (pipeline) and gives each account its own judge.
+Groq throttles the matrix partway, so the harness aborts cleanly and keeps what it has;
+finish it later with:
 
 ```bash
 .venv-eval/bin/python -m eval.run_ragas --limit 10 --resume \

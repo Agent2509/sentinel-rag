@@ -20,26 +20,45 @@ from app import config
 
 load_dotenv()
 
-# One client per provider. Router/grader/HyDE and generation use separate Groq keys
-# so generation (the big token consumer) doesn't starve the decision calls.
-# The eval judge picks its own key directly (see eval/run_ragas.py), not this client.
-_PROVIDERS = {
-    "groq": (config.GROQ_BASE_URL, ("GROQ_API_KEY",)),
-    "groq_gen": (config.GROQ_BASE_URL, ("GROQ_API_KEY_2", "GROQ_API_KEY")),
-}
-_clients: dict[str, OpenAI] = {}
+# Every key in the environment (GROQ_API_KEY, GROQ_API_KEY_2, ...) forms a pool.
+# Calls round-robin across the pool so free-tier limits from separate Groq accounts
+# add up; a single-account setup just cycles its one key. The eval judge builds one
+# client per key from the same pool (see eval/run_ragas.py).
+_pool: list[OpenAI] = []
+_rr = 0
+
+
+def api_keys() -> list[str]:
+    """All distinct Groq keys in the environment, in a stable order."""
+    out: list[str] = []
+    for name in sorted(os.environ):
+        if name.startswith("GROQ_API_KEY"):
+            val = os.environ[name]
+            if val and val not in out:
+                out.append(val)
+    return out
+
+
+def _clients() -> list[OpenAI]:
+    global _pool
+    if not _pool:
+        keys = api_keys()
+        if not keys:
+            raise RuntimeError("Missing GROQ_API_KEY in environment/.env")
+        _pool = [
+            OpenAI(base_url=config.GROQ_BASE_URL, api_key=k, timeout=config.LLM_TIMEOUT)
+            for k in keys
+        ]
+    return _pool
 
 
 def get_client(provider: str) -> OpenAI:
-    if provider not in _clients:
-        base_url, env_keys = _PROVIDERS[provider]
-        key = next((os.getenv(k) for k in env_keys if os.getenv(k)), None)
-        if not key:
-            raise RuntimeError(f"Missing {env_keys[0]} in environment/.env")
-        _clients[provider] = OpenAI(
-            base_url=base_url, api_key=key, timeout=config.LLM_TIMEOUT
-        )
-    return _clients[provider]
+    """Return the next client in the round-robin pool (provider kept for callers)."""
+    global _rr
+    pool = _clients()
+    client = pool[_rr % len(pool)]
+    _rr += 1
+    return client
 
 
 def _is_transient(e: Exception) -> bool:
@@ -74,7 +93,10 @@ def chat(
         kwargs: dict[str, Any] = {"response_format": {"type": "json_object"}}
     else:
         kwargs = {}
-    for attempt in range(retries + 1):
+    # Try at least once per pooled key: get_client() rotates, so a 429 on one
+    # account's key retries on the next account's key.
+    attempts = max(retries + 1, len(_clients()))
+    for attempt in range(attempts):
         try:
             resp = get_client(provider).chat.completions.create(
                 model=model,
@@ -85,7 +107,7 @@ def chat(
             )
             return resp.choices[0].message.content or ""
         except Exception as e:  # noqa: BLE001 - only transient errors are retried
-            if attempt < retries and _is_transient(e):
+            if attempt < attempts - 1 and _is_transient(e):
                 time.sleep(config.LLM_RETRY_BACKOFF * (attempt + 1))
                 continue
             raise
