@@ -137,6 +137,7 @@ async def _sse(req: QueryRequest, request: Request):
                 yield _fmt(event)
         except Exception as e:  # noqa: BLE001 - never truncate the stream silently
             error = f"{type(e).__name__}: {e}"
+            print(f"[query] {error}")
         finally:
             gen.close()
 
@@ -155,7 +156,7 @@ async def _sse(req: QueryRequest, request: Request):
             "total_latency_ms": int(1000 * (time.perf_counter() - t0)),
         }
         if error:
-            final["error"] = error
+            final["error"] = "internal error"  # detail stays in the server log
         if not disconnected:
             yield _fmt({"type": "final", "trace_id": trace_id, "trace": final})
 

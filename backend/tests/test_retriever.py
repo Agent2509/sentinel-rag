@@ -18,7 +18,6 @@ def make_bundle(scores):
             text=f"t{i}",
             doc_title=f"d{i}",
             chunk_id=f"c{i}",
-            strategy="fixed",
             parent_id=None,
         )
         for i in range(len(scores))

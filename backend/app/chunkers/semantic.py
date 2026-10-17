@@ -52,7 +52,7 @@ def chunk(text: str, doc_title: str) -> list[Chunk]:
     text = text.strip()
     sentences = split_sentences(text)
     if len(sentences) <= 1:
-        return [Chunk(doc_title=doc_title, text=text, strategy="semantic")]
+        return [Chunk(doc_title=doc_title, text=text)]
 
     from app.embeddings import embed_documents
 
@@ -71,5 +71,5 @@ def chunk(text: str, doc_title: str) -> list[Chunk]:
         group_texts.extend(_cap_tokens(group, config.SEMANTIC_MAX_CHUNK_TOKENS))
 
     return [
-        Chunk(doc_title=doc_title, text=g, strategy="semantic") for g in group_texts if g
+        Chunk(doc_title=doc_title, text=g) for g in group_texts if g
     ]

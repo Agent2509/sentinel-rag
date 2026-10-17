@@ -65,7 +65,13 @@ function bestPerMetric(groups: Group[]) {
       .filter((r): r is { group: Group; value: number } => typeof r.value === "number")
       .sort((x, y) => y.value - x.value);
     if (ranked.length < 2) return [];
-    return [{ label: m.label, ...ranked[0] }];
+    return [
+      {
+        label: m.label,
+        ...ranked[0],
+        tied: Math.abs(ranked[1].value - ranked[0].value) < 1e-9,
+      },
+    ];
   });
 }
 
@@ -146,7 +152,9 @@ export default function Scoreboard() {
                     {b.value.toFixed(3)}
                   </span>
                   <span className="text-muted-foreground">
-                    {b.group.strategy} · {b.group.correction ? "on" : "off"}
+                    {b.tied
+                      ? "tie"
+                      : `${b.group.strategy} · ${b.group.correction ? "on" : "off"}`}
                   </span>
                 </Badge>
               ))}

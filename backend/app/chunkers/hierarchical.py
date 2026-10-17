@@ -30,7 +30,6 @@ def chunk(text: str, doc_title: str) -> list[Chunk]:
                 Chunk(
                     doc_title=doc_title,
                     text=enc.decode(child_ids),
-                    strategy="hierarchical",
                     parent_id=parent_id,
                     parent_text=parent_text,
                 )

@@ -13,7 +13,6 @@ class Chunk:
     chunk_id: str = ""
     doc_title: str = ""
     text: str = ""
-    strategy: str = ""
     parent_id: str | None = None
     parent_text: str | None = None
 
@@ -26,7 +25,6 @@ class Chunk:
             chunk_id=d.get("chunk_id", ""),
             doc_title=d.get("doc_title", ""),
             text=d.get("text", ""),
-            strategy=d.get("strategy", ""),
             parent_id=d.get("parent_id"),
             parent_text=d.get("parent_text"),
         )

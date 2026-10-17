@@ -13,7 +13,7 @@ def chunk(text: str, doc_title: str) -> list[Chunk]:
     while i < len(ids):
         window = ids[i : i + size]
         chunks.append(
-            Chunk(doc_title=doc_title, text=enc.decode(window), strategy="fixed")
+            Chunk(doc_title=doc_title, text=enc.decode(window))
         )
         if i + size >= len(ids):
             break

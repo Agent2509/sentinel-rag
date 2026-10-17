@@ -84,6 +84,7 @@ cd frontend
 pnpm install
 pnpm dev            # http://localhost:3000  (backend must be on :8000)
 pnpm build          # typecheck + production build
+pnpm start          # serve the production build on :3000
 ```
 
 - **Trace View** (`/`) — streams the pipeline over SSE (fetch-stream), animated step cards, answer + citations.

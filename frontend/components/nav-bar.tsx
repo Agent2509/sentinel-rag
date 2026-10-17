@@ -27,7 +27,7 @@ export function NavBar() {
           <span className="hidden font-display text-lg tracking-tight sm:inline">Sentinel RAG</span>
         </Link>
 
-        <div className="ml-2 flex items-center gap-1 overflow-x-auto [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_85%,transparent)]">
+        <div className="ml-2 flex items-center gap-1 overflow-x-auto [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_85%,transparent)] max-sm:[-webkit-mask-image:linear-gradient(to_right,black_85%,transparent)]">
           {LINKS.map((link) => {
             const active = pathname === link.href;
             return (
@@ -35,7 +35,7 @@ export function NavBar() {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                className={`relative shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   active
                     ? "bg-primary/10 text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-primary after:shadow-[0_0_8px] after:shadow-primary/70"
                     : "text-muted-foreground hover:text-foreground"
