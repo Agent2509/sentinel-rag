@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 BACKEND = Path(__file__).resolve().parents[1]
-SCRIPTS = ["check_pipeline", "check_api", "check_documents", "check_eval"]
+SCRIPTS = ["check_pipeline", "check_api", "check_documents"]
 
 
 @pytest.mark.parametrize("script", SCRIPTS)

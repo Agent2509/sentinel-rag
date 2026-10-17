@@ -23,7 +23,7 @@ const instrument = Instrument_Serif({
 export const metadata: Metadata = {
   title: "Sentinel RAG",
   description:
-    "A self-correcting RAG lab: 3 chunking strategies, graded retrieval, HyDE retries, RAGAS evaluation.",
+    "A self-correcting RAG lab: 3 chunking strategies, graded retrieval and HyDE retries.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

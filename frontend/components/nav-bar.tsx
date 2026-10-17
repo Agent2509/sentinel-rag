@@ -10,7 +10,6 @@ const LINKS = [
   { href: "/", label: "Trace View" },
   { href: "/strategy", label: "Strategy Lab" },
   { href: "/documents", label: "Documents" },
-  { href: "/scoreboard", label: "Scoreboard" },
 ];
 
 export function NavBar() {

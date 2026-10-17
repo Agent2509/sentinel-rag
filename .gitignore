@@ -6,7 +6,6 @@ __pycache__/
 node_modules/
 .next/
 **/data/index/
-.venv-eval/
 .commandcode/
 
 # local corpus: seed with scripts/gen_corpus.py or upload your own files

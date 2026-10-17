@@ -20,7 +20,7 @@ Traditional Retrieval-Augmented Generation (RAG) implementations in industry are
 3. **Monitors its own retrieval quality**: Uses an autonomous LLM Grader to evaluate retrieved chunks before generation.
 4. **Self-corrects autonomously**: If chunks score below 0.6, it triggers a Hypothetical Document Embeddings (HyDE) loop to rewrite the query, re-retrieve, and recover.
 5. **Enforces strict grounding**: Discards answers with invalid or missing citations.
-6. **Shows the receipts**: Streams every internal step via Server-Sent Events (SSE) and benchmarks all combinations with RAGAS.
+6. **Shows the receipts**: Streams every internal step via Server-Sent Events (SSE) and stores the trace for later inspection.
 
 ---
 
@@ -115,14 +115,7 @@ When an interviewer or evaluator asks *"Why did you use technology X instead of 
 
 ### 6. Database: `SQLite 3` with `PRAGMA journal_mode = WAL`
 * **Why chosen:** Zero-configuration local database. 
-* **WAL Mode (Write-Ahead Logging):** Standard SQLite locks the entire database on writes. WAL mode allows concurrent readers (UI loading traces) while the SSE stream or batch eval writes new records.
-
-### 7. Evaluation: `RAGAS` (Retrieval Augmented Generation Assessment)
-* **Metrics Computed:**
-  * **Faithfulness:** Proportion of claims in the generated answer directly supported by the retrieved context (measures hallucination).
-  * **Answer Relevancy:** Semantic alignment between generated answer and initial question.
-  * **Context Precision:** Ratio of relevant chunks to total retrieved chunks.
-  * **Context Recall:** Extent to which retrieved context covers the ground-truth reference passage.
+* **WAL Mode (Write-Ahead Logging):** Standard SQLite locks the entire database on writes. WAL mode allows concurrent readers (UI loading traces) while the SSE stream writes new records.
 
 ---
 
@@ -145,7 +138,7 @@ Use this section while practicing your presentation with `Sentinel_RAG.pptx`.
 ### Slide 3: What It Is (Four Architectural Pillars)
 * **Visual:** 4 horizontal pillar banners.
 * **What to Say:**
-  > *"First, we chunk three ways in parallel—fixed, hierarchical parent-child, and semantic breakpoints—so we can compare them empirically. Second, we combine dense vectors with BM25 keyword search using Reciprocal Rank Fusion. Third, we implement an autonomous self-correction loop where an LLM Grader inspects chunks, triggering a HyDE rewrite if quality is low. Fourth, we prove it with empirical RAGAS metrics."*
+  > *"First, we chunk three ways in parallel—fixed, hierarchical parent-child, and semantic breakpoints—so we can compare them empirically. Second, we combine dense vectors with BM25 keyword search using Reciprocal Rank Fusion. Third, we implement an autonomous self-correction loop where an LLM Grader inspects chunks, triggering a HyDE rewrite if quality is low."*
 * **Transition:** *"Let's look at how these pillars connect end-to-end in our system architecture."*
 
 ### Slide 4: Architecture Flowchart
@@ -190,46 +183,34 @@ Use this section while practicing your presentation with `Sentinel_RAG.pptx`.
   > *"Citations are verified, not assumed. The generator must provide inline markers like [1] and [2]. Our backend parses these, eliminates out-of-range citations, deduplicates, and renumbers them in appearance order. If the model outputs an answer with zero valid citations, the entire answer is rejected. In our web UI, clicking citation [1] automatically scrolls to and highlights the backing source chunk."*
 * **Transition:** *"Let me share a real engineering war story from building this evaluation pipeline."*
 
-### Slide 11: The Diagnostic War Story (The CJK Bracket Bug)
-* **Visual:** The bug that ate 118 of 120 answers.
-* **What to Say:**
-  > *"During our first 120-test automated run, 118 queries returned fallback 'not found' errors. It looked like the pipeline was broken. But because we had granular telemetry logging source_doc_hit, we saw that retrieval was actually 100% successful! The issue: the reasoning model occasionally wrapped citations in full-width CJK brackets (【1】) instead of ASCII brackets ([1]). The strict validator saw zero ASCII brackets and discarded the answers. Two lines of regex normalization fixed it, jumping accuracy to 100%. This proves why deep telemetry matters."*
-* **Transition:** *"With the pipeline hardened, let's look at the benchmark evaluation results."*
-
-### Slide 12: Empirical Results (RAGAS Benchmark)
-* **Visual:** Benchmark table: all six combos measured at n=10, including the two semantic rows where the proxy precision/recall look weak.
-* **What to Say:**
-  > *"We ran the pipeline and a RAGAS judge over our test set and published all six combos — 60 measured cases. Faithfulness stays between 0.87 and 1.00, and retrieval hit the right source document in 90 to 100 percent of samples. Semantic chunking answers in about two seconds versus fifteen for fixed. The precision and recall columns compare against whole-document contexts, so I don't use them to rank chunkers — the retrieval hit rate is the honest comparison."*
-* **Transition:** *"Now, let's see how this looks in the live web application."*
-
-### Slide 13: UI — Trace View
+### Slide 11: UI — Trace View
 * **Visual:** Screenshot of the Trace View with live SSE steps.
 * **What to Say:**
   > *"This is our primary interface: Trace View. As a query executes, steps stream in real time over SSE. You see latency breakdowns for routing, retrieval, grading, and generation. When self-correction triggers, the badge pulses amber. When generation succeeds, it glows green. And citations are completely interactive."*
 * **Transition:** *"Beyond single queries, we built two comparative engineering tools."*
 
-### Slide 14: UI — Strategy Lab, Documents, and Scoreboard
-* **Visual:** Cards for Strategy Lab, Document Manager, and Scoreboard.
+### Slide 12: UI — Strategy Lab and Documents
+* **Visual:** Cards for Strategy Lab and Document Manager.
 * **What to Say:**
-  > *"In Strategy Lab, engineers can run identical queries against two strategies side by side to visualize chunk boundary effects. In the Document Manager, users can upload PDFs or markdown files and watch the server re-index in the background. And on the Scoreboard, the RAGAS empirical metrics are displayed directly in the browser."*
+  > *"In Strategy Lab, engineers can run identical queries against two strategies side by side to visualize chunk boundary effects. In the Document Manager, users can upload PDFs or markdown files and watch the server re-index in the background."*
 * **Transition:** *"Let's walk through the exact live demo execution."*
 
-### Slide 15: Live Demo Execution Script
+### Slide 13: Live Demo Execution Script
 * **Visual:** The 4 demonstration scenarios from demo.md.
 * **What to Say:**
   > *"In our live demo today, we're executing four distinct scenarios: First, 'What is LoRA?' demonstrates instant simple routing and hybrid search. Second, our hero query compares attention mechanisms to recurrence, triggering the amber HyDE self-correction loop. Third, an out-of-domain financial query proves graceful fallback without hallucination. Fourth, our Strategy Lab runs the same query through two chunking strategies side by side so the difference is visible."*
 * **Transition:** *"Let's talk about the production engineering that keeps this demo crash-proof."*
 
-### Slide 16: Engineering Reliability
+### Slide 14: Engineering Reliability
 * **Visual:** SSE disconnect handling, SQLite WAL, Groq key pooling, atomic reindex.
 * **What to Say:**
-  > *"Everything was built to survive a live demo. If a user cancels a query, our SSE generator stops cleanly. SQLite WAL mode ensures trace writes never block scoreboard reads. We pool and rotate API keys across accounts to bypass rate limits, and live document uploads use atomic staging swaps. The entire system is self-contained on localhost."*
+  > *"Everything was built to survive a live demo. If a user cancels a query, our SSE generator stops cleanly. SQLite WAL mode ensures trace writes never block UI reads. We pool and rotate API keys across accounts to bypass rate limits, and live document uploads use atomic staging swaps. The entire system is self-contained on localhost."*
 * **Transition:** *"To conclude, let's review honest boundaries and future roadmap."*
 
-### Slide 17: Honest Limitations & Roadmap
+### Slide 15: Honest Limitations & Roadmap
 * **Visual:** Current limitations vs Future engineering roadmap.
 * **What to Say:**
-  > *"We believe in engineering honesty. Semantic chunking has higher offline embedding cost at ingest, and string-overlap metrics have known artifacts on small chunks. In our next iteration, we are adding a cross-encoder BGE reranker between RRF and the Grader, and streaming tokens directly into the generation card. In summary: Sentinel RAG knows when it's failing, fixes itself, and shows you the receipts. Thank you, and I welcome your questions."*
+  > *"We believe in engineering honesty. Semantic chunking has a higher embedding cost at ingest, and long documents can exceed the model's context window. In our next iteration, we are adding a cross-encoder BGE reranker between RRF and the Grader, and streaming tokens directly into the generation card. In summary: Sentinel RAG knows when it's failing, fixes itself, and shows you the receipts. Thank you, and I welcome your questions."*
 
 ---
 

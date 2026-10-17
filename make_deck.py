@@ -117,7 +117,7 @@ para(tf, "\u201cMost RAG systems fail silently. Mine knows when it\u2019s failin
      size=18, color=MUTED, space_after=0)
 tf2 = textbox(s, Inches(0.9), Inches(6.3), Inches(11.5), Inches(0.6))
 para(tf2, "3 Parallel Chunkers  \u00b7  Hybrid BM25 + FAISS (RRF)  \u00b7  Grader + HyDE Retry Loop  "
-          "\u00b7  RAGAS Evaluated  \u00b7  Live Web Lab",
+          "\u00b7  Live Web Lab",
      size=14, color=MUTED, first=True)
 notes(s, "Introduction:\n"
          "Welcome everyone. Today I'm presenting Sentinel RAG.\n"
@@ -163,7 +163,7 @@ pillars = [
     ("01", "Chunk Three Ways in Parallel", "Fixed (512/50), Hierarchical Parent-Child (256/1024), and Semantic Breakpoint splits — empirically compared."),
     ("02", "Hybrid Retrieval with RRF", "BM25 keyword search + FAISS dense vectors, unified via Reciprocal Rank Fusion without arbitrary heuristic weights."),
     ("03", "Agentic Self-Correction Loop", "An LLM Grader inspects retrieved passages; low relevance triggers a HyDE rewrite and autonomous re-retrieval."),
-    ("04", "Empirical Evaluation (Receipts)", "Every strategy combination is evaluated using standard RAGAS metrics (Faithfulness, Relevancy, Precision, Recall)."),
+    ("04", "Traceable by Design", "Every query streams its routing, retrieval, grading, retries and citations, and is stored for later inspection."),
 ]
 for i, (n, t, b) in enumerate(pillars):
     y = Inches(1.85 + i * 1.24)
@@ -176,7 +176,7 @@ notes(s, "Core Value Proposition:\n"
          "Pillar 1: We don't guess which chunking is best. We ingest the corpus across all three strategies and compare them side by side.\n"
          "Pillar 2: Keyword search catches technical jargon (e.g. 'LoRA', 'AdamW'); dense vectors catch semantic paraphrase. RRF fuses them perfectly.\n"
          "Pillar 3: The system knows when it has bad context. If relevance score < 0.6, it writes a hypothetical answer and retrieves again.\n"
-         "Pillar 4: Complete transparency. Every trace is stored in SQLite and evaluated with RAGAS.")
+         "Pillar 4: Complete transparency. Every trace is stored in SQLite and streamed step by step.")
 
 # ==============================================================================
 # SLIDE 4: Architecture Flowchart
@@ -241,7 +241,7 @@ tech_rows = [
     ["API Server", "FastAPI + Uvicorn", "Async Server-Sent Events (SSE) gateway", "High throughput async generator yields step-by-step telemetry."],
     ["Frontend UI", "Next.js 15 + Tailwind + Radix", "Reactive dark-mode visualization lab", "Turbopack performance, accessible step animations, SSE fetch reader."],
     ["LLM Engine", "Groq Cloud API (Llama/GPT-OSS)", "Router, Grader, HyDE, and Generation", "Sub-second inference allows multi-turn self-correction in <2s total."],
-    ["Persistence", "SQLite 3 (PRAGMA WAL)", "Trace and evaluation storage", "Zero config; WAL mode permits concurrent SSE writes and UI reads."],
+    ["Persistence", "SQLite 3 (PRAGMA WAL)", "Trace storage", "Zero config; WAL mode permits concurrent SSE writes and UI reads."],
 ]
 gt = s.shapes.add_table(len(tech_rows), 4, Inches(0.6), Inches(1.75), Inches(12.1), Inches(5.1)).table
 for r, row in enumerate(tech_rows):
@@ -388,68 +388,6 @@ notes(s, "Citation Validation:\n"
          "- In our UI, clicking [1] highlights the exact chunk card on the left.")
 
 # ==============================================================================
-# SLIDE 11: The Diagnostic War Story
-# ==============================================================================
-s = new_slide()
-header(s, "war story", "The CJK Bracket Bug That Ate 118 Answers")
-bullets(s, Inches(0.6), Inches(1.85), Inches(12.0), [
-    ("The Initial Evaluation Crash", "Our first automated matrix showed 118 out of 120 answers returning the fallback 'could not find answer' message."),
-    ("The Mystery", "Inspection showed retrieval was flawless: context precision was 0.95 and source_doc_hit was 1.0! The right chunks were retrieved every time."),
-    ("The Root Cause", "The reasoning model occasionally wrapped citations in CJK full-width brackets (\u30101\u3011) instead of ASCII brackets ([1]). The strict citation validator found 0 ASCII citations and discarded the answers."),
-    ("The Engineering Fix", "Two lines in app/generate.py to normalize full-width and bracket variants; added telemetry for fallback_reason, grader_error, and doc_hit."),
-], size=16, gap=12)
-tf = textbox(s, Inches(0.6), Inches(5.9), Inches(12.1), Inches(1.0))
-para(tf, "Lesson: Instrumentation over guessing. Without granular diagnostic logging, one would assume the Grader threshold was too aggressive.",
-     size=17, color=AMBER, bold=True, first=True)
-notes(s, "Share this war story during the presentation:\n"
-         "- It demonstrates deep engineering rigor.\n"
-         "- We didn't just build a toy. When we ran the 120-test evaluation, 118 failed. A lazy engineer would have lowered the grader threshold from 0.6 to 0.2.\n"
-         "- Because we logged source_doc_hit, we saw retrieval was 100% successful. The issue was purely character encoding in the citation parser. We fixed it, and accuracy jumped to 100%.")
-
-# ==============================================================================
-# SLIDE 12: Evaluation Matrix & Results
-# ==============================================================================
-s = new_slide()
-header(s, "empirical results", "RAGAS Benchmark (6 of 6 Combos, n=10)")
-eval_rows = [
-    ["Strategy", "Self-Correction", "Faithfulness", "Answer Relevancy", "Context Precision", "Context Recall", "Doc Hit Rate"],
-    ["Fixed Window", "ON (HyDE)", "1.000", "0.868", "0.950", "1.000", "100%"],
-    ["Fixed Window", "OFF", "0.967", "0.837", "0.950", "1.000", "100%"],
-    ["Hierarchical", "ON (HyDE)", "0.871", "0.731", "0.850", "0.900", "90%"],
-    ["Hierarchical", "OFF", "0.871", "0.713", "0.850", "0.900", "90%"],
-    ["Semantic Splits", "ON (HyDE)", "0.900", "0.854", "0.250", "0.300", "90%"],
-    ["Semantic Splits", "OFF", "0.925", "0.861", "0.250", "0.300", "90%"],
-]
-gt = s.shapes.add_table(len(eval_rows), 7, Inches(0.6), Inches(1.75), Inches(12.1), Inches(3.8)).table
-widths = [2.4, 1.8, 1.5, 1.6, 1.6, 1.6, 1.6]
-for r, row in enumerate(eval_rows):
-    gt.rows[r].height = Inches(0.52)
-    for c, val in enumerate(row):
-        cell = gt.cell(r, c)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = PANEL2 if r == 0 else PANEL
-        tf = cell.text_frame
-        tf.word_wrap = True
-        p = tf.paragraphs[0]
-        run = p.add_run()
-        run.text = val
-        run.font.name = FONT
-        run.font.size = Pt(13)
-        run.font.bold = (r == 0) or (c == 0)
-        run.font.color.rgb = ACCENT if r == 0 else TEXT
-for c, wd in enumerate(widths):
-    gt.columns[c].width = Inches(wd)
-tf = textbox(s, Inches(0.6), Inches(5.8), Inches(12.1), Inches(1.2))
-para(tf, "Full matrix: all six combos measured at n=10 on gpt-oss-20b. Semantic completes in ~2s versus ~15s for fixed chunking; context precision/recall are string-similarity proxies against whole-document references and do not rank chunkers. The judge shares the pipeline's model family.",
-     size=13, color=MUTED, first=True)
-notes(s, "Walking through the Results Table:\n"
-         "- 60 measured test cases (6 combos x n=10) on our 50-doc benchmark; nothing is left pending.\n"
-         "- Faithfulness 0.87-1.00: answers stay grounded in the retrieved text.\n"
-         "- Answer Relevancy 0.71-0.86; retrieval hit the right source document in 90-100% of samples.\n"
-         "- Semantic is ~2s versus ~15s for fixed, but precision/recall are proxies against whole-document contexts, so they do not rank chunkers.\n"
-         "- These numbers are populated live on the frontend Scoreboard.")
-
-# ==============================================================================
 # SLIDE 13: UI — Trace View
 # ==============================================================================
 s = new_slide()
@@ -481,7 +419,6 @@ header(s, "live ui", "Strategy Lab & Live Corpus Ingestion")
 cards = [
     ("Strategy Lab (/strategy)", "Runs identical queries simultaneously across two different chunking configurations side-by-side. Allows engineers to see chunk boundary differences directly in real time.", ACCENT),
     ("Document Manager (/documents)", "Upload custom .md, .txt, or .pdf files. Triggers an atomic background re-indexing pass without shutting down the server. List, inspect, or delete corpus files.", AMBER),
-    ("Scoreboard (/scoreboard)", "Reads directly from GET /api/eval. Displays comparative radar charts, metric bars, and per-strategy performance tables.", TEXT),
 ]
 for i, (t, b, c) in enumerate(cards):
     y = Inches(1.85 + i * 1.65)
@@ -490,10 +427,9 @@ for i, (t, b, c) in enumerate(cards):
     tf.margin_left = tf.margin_right = Inches(0.3)
     para(tf, t, size=18, color=c, bold=True, first=True, space_after=8)
     para(tf, b, size=14, color=TEXT, space_after=0)
-notes(s, "Highlight the other 3 screens:\n"
+notes(s, "Highlight the other two screens:\n"
          "- Strategy Lab: Excellent for debugging. You can run 'Explain Backpropagation' on Fixed vs Hierarchical side by side.\n"
-         "- Documents Page: Shows that the corpus is dynamic. Users can drop a PDF or markdown file and watch the server rebuild indexes in seconds.\n"
-         "- Scoreboard: Exposes the empirical RAGAS metrics directly in the browser.")
+         "- Documents Page: Shows that the corpus is dynamic. Users can drop a PDF or markdown file and watch the server rebuild indexes in seconds.")
 
 # ==============================================================================
 # SLIDE 15: Live Demo Execution Script

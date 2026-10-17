@@ -24,8 +24,7 @@ load_dotenv()
 
 # Every key in the environment (GROQ_API_KEY, GROQ_API_KEY_2, ...) forms a pool.
 # Calls round-robin across the pool so free-tier limits from separate Groq accounts
-# add up; a single-account setup just cycles its one key. The eval judge builds one
-# client per key from the same pool (see eval/run_ragas.py).
+# add up; a single-account setup just cycles its one key.
 _pool: list[OpenAI] = []
 _rr = 0
 _ready = False

@@ -103,18 +103,6 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 
 ---
 
-### Act 5: Empirical Scoreboard (1.5 mins)
-* **Goal:** Close with quantitative RAGAS evaluation numbers.
-* **Page:** Click **Scoreboard** in navbar (`http://localhost:3000/scoreboard`).
-* **Highlight the Table & Charts:**
-  - **Faithfulness:** 0.97–1.00 for the `fixed` runs on record (hallucinations prevented).
-  - **Doc hit rate:** 1.00 — every retrieval found the right source document.
-  - **What to point at:** all six combos are measured (n=10 each, 60 cases). Semantic is the fastest (~2 s) while fixed scores highest on the proxy precision/recall — those two columns compare against whole-document contexts, so they don't rank chunkers.
-* **Talk Track:**
-  > "We ran the pipeline and a RAGAS judge over a held-together test set and published exactly what came back, including what we haven't measured yet. The receipts are right here."
-
----
-
 ## 2. Emergency Backup
 If anything fails live (e.g. WiFi cut):
 - Open `Sentinel_RAG.pptx` (17-slide deck generated in root).

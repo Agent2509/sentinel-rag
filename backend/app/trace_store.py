@@ -1,7 +1,7 @@
-"""SQLite (WAL) persistence for traces and eval results.
+"""SQLite (WAL) persistence for traces.
 
 Connections are opened per call (safe under asyncio.to_thread) and closed via a
-context manager. WAL lets trace writes and batch eval writes coexist.
+context manager. WAL keeps trace writes from blocking reads.
 """
 import json
 import sqlite3
@@ -20,20 +20,6 @@ CREATE TABLE IF NOT EXISTS traces (
     final_status TEXT NOT NULL,
     latency_ms INTEGER NOT NULL,
     retries INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS eval_results (
-    id TEXT PRIMARY KEY,
-    strategy TEXT NOT NULL,
-    correction_enabled INTEGER NOT NULL,
-    question TEXT NOT NULL,
-    faithfulness REAL,
-    answer_relevancy REAL,
-    context_precision REAL,
-    context_recall REAL,
-    latency_ms INTEGER,
-    run_timestamp TEXT NOT NULL,
-    corpus_version TEXT
 );
 """
 
@@ -54,9 +40,6 @@ def _connect():
 def init_db() -> None:
     with _connect() as conn:
         conn.executescript(_SCHEMA)
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(eval_results)")}
-        if "corpus_version" not in cols:  # older DBs
-            conn.execute("ALTER TABLE eval_results ADD COLUMN corpus_version TEXT")
 
 
 def save_trace(trace: dict) -> None:
@@ -106,48 +89,6 @@ def list_traces(limit: int = 20) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def list_eval_results() -> list[dict]:
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM eval_results ORDER BY run_timestamp"
-        ).fetchall()
-    return [dict(r) for r in rows]
-
-
 def count_traces() -> int:
     with _connect() as conn:
         return int(conn.execute("SELECT COUNT(*) AS c FROM traces").fetchone()["c"])
-
-
-def delete_eval_results_for(strategy: str, correction_enabled: int) -> None:
-    with _connect() as conn:
-        conn.execute(
-            "DELETE FROM eval_results WHERE strategy = ? AND correction_enabled = ?",
-            (strategy, correction_enabled),
-        )
-
-
-def save_eval_result(row: dict) -> None:
-    with _connect() as conn:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO eval_results
-              (id, strategy, correction_enabled, question, faithfulness,
-               answer_relevancy, context_precision, context_recall,
-               latency_ms, run_timestamp, corpus_version)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                row["id"],
-                row["strategy"],
-                1 if row.get("correction_enabled") else 0,
-                row["question"],
-                row.get("faithfulness"),
-                row.get("answer_relevancy"),
-                row.get("context_precision"),
-                row.get("context_recall"),
-                row.get("latency_ms"),
-                row["run_timestamp"],
-                row.get("corpus_version"),
-            ),
-        )

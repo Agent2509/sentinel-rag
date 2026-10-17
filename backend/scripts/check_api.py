@@ -86,10 +86,6 @@ def main_check() -> None:
         assert c.status_code == 200 and len(c.json()) == 3
         print("corpus           OK  docs=", len(c.json()))
 
-        e = client.get("/api/eval")
-        assert e.status_code == 200 and e.json() == []
-        print("eval stub        OK")
-
         assert client.post("/api/query", json={"query": "hi", "strategy": "nope"}).status_code == 400
         assert client.post("/api/query", json={"query": "x" * 3000}).status_code == 400
         print("query validation OK")

@@ -2,7 +2,7 @@
 
 > "Most RAG systems fail silently. Mine knows when it's failing, fixes itself, and shows you the receipts."
 
-A locally hosted, self-correcting RAG laboratory with 3 chunking strategies, an agentic self-correction loop (Grader + HyDE), and RAGAS-evaluated metrics — all visualized in a live web UI.
+A locally hosted, self-correcting RAG laboratory with 3 chunking strategies and an agentic self-correction loop (Grader + HyDE) — all visualized in a live web UI.
 
 ---
 
@@ -32,12 +32,12 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **Query input cap** | 2000 characters (reject/truncate with a trace note) |
 | **Citations** | LLM emits inline `[1]`, `[2]`; **backend parses, drops out-of-range refs, remaps to retrieved chunks**, then renders list below answer |
 | **Trace streaming** | SSE (Server-Sent Events) via `/api/query`. First event carries `trace_id`. Client disconnect stops the pipeline between steps (an in-flight LLM call is not cancelled). |
-| **Persistence** | SQLite (`sqlite3` stdlib, WAL mode, one connection per request); 2 tables: `traces`, `eval_results` |
+| **Persistence** | SQLite (`sqlite3` stdlib, WAL mode, one connection per request); one table: `traces` |
 | **Concurrency** | Blocking embedder + sync LLM calls run via `asyncio.to_thread`; Strategy Lab dual pipelines capped by one `asyncio.Semaphore` (Groq free-tier) |
 | **Startup** | Warm embedder and assert indexes exist. If missing → log instructions and have `/api/query` return 503; `/api/health` reports the reason. |
 | **Config** | `config.py` module — single source of truth for all constants |
-| **Secrets** | `.env` file with `GROQ_API_KEY` (and `GROQ_API_KEY_2` for the eval judge) |
-| **Dependencies** | **Pinned** in `requirements.txt` (RAGAS is version-brittle; do not float it) |
+| **Secrets** | `.env` file with `GROQ_API_KEY` (and `GROQ_API_KEY_2` for key pooling) |
+| **Dependencies** | **Pinned** in `requirements.txt` |
 | **Python env** | Project-local `.venv` in `backend/` via `uv` |
 | **Frontend pkg mgr** | `pnpm` |
 | **Ports** | Backend: 8000 (bound to `127.0.0.1`), Frontend: 3000 |
@@ -50,8 +50,6 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **Accessibility** | Trace region is `aria-live="polite"`; nav and toggles keyboard-reachable with labels; text contrast ≥ 4.5:1 in both themes |
 | **Strategy Lab** | Live queries (on-the-fly), 2 side-by-side result panels with dropdown selectors |
 | **Branding** | "Sentinel RAG" wordmark + radar/shield icon in nav |
-| **RAGAS eval** | `ragas` library with Groq as evaluator LLM. Test set includes **reference answer + reference contexts** (required for context metrics). The published partial matrix ran on `openai/gpt-oss-20b` for both pipeline and judge (free-tier quota). |
-| **Test set** | Groq (`openai/gpt-oss-120b`) generates 1–2 Q/A pairs per doc, each with `{question, answer, contexts[]}` → ~50 pairs JSONL |
 | **Error handling** | Router parse fail → default `complex`; Grader parse fail → error sentinel (distinct from score 0.0, forces fallback rather than burning retries); HyDE fail → skip straight to fallback; LLM call fail → retry once, then `final_status: "error"` |
 | **Final statuses** | `success` \| `not_found` \| `error` |
 | **Health endpoint** | `/api/health` with index status, corpus size, model-ready flag |
@@ -109,7 +107,7 @@ sentinel-rag/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py           # Package init
-│   │   ├── main.py               # FastAPI app: /api/query (SSE), /api/trace/{id}, /api/eval, /api/corpus, /api/strategies, /api/health. Startup warm-up + index guard.
+│   │   ├── main.py               # FastAPI app: /api/query (SSE), /api/trace/{id}, /api/corpus, /api/strategies, /api/health. Startup warm-up + index guard.
 │   │   ├── config.py             # All tunable constants (mirrors the table above)
 │   │   ├── ingest.py             # CLI: load corpus → run 3 chunkers → build FAISS + BM25 → save to data/index/
 │   │   ├── verify.py             # CLI: query each FAISS + BM25 index with test queries, print top-5 (Milestone 1 gate)
@@ -128,19 +126,14 @@ sentinel-rag/
 │   │   ├── pipeline.py           # Orchestrator: router → retrieve → grade → (HyDE retry) → generate. Emits SSE events; cancellable on disconnect.
 │   │   ├── store.py              # Index save/load: FAISS + chunks.json per strategy (BM25 rebuilt at load)
 │   │   ├── documents.py          # Corpus files on disk: upload (md/txt/pdf), hash dedupe, safe delete
-│   │   └── trace_store.py        # sqlite3 persistence (WAL), traces + eval_results
-│   ├── eval/
-│   │   ├── build_testset.py      # Groq: {question, answer, contexts[]} per doc → JSONL
-│   │   ├── run_ragas.py          # RAGAS: 3 strategies × correction on/off → results.json
-│   │   └── harness.py            # Pure trace→RAGAS mapping, metrics aggregation, diagnostics
+│   │   └── trace_store.py        # sqlite3 persistence (WAL), traces
 │   ├── scripts/                  # gen_corpus.py, corpus_part*.py, corpus_extras_*.py (corpus generators),
-│   │                             # check_{pipeline,api,eval,documents}.py (deterministic self-checks)
+│   │                             # check_{pipeline,api,documents}.py (deterministic self-checks)
 │   ├── tests/                    # pytest: runs the check scripts + unit tests (retriever, llm json, dedupe)
 │   ├── data/
 │   │   ├── corpus/               # Source markdown documents (50 AI/ML docs)
 │   │   └── index/                # (Generated) FAISS indices, chunk JSON, SQLite DB
 │   ├── requirements.txt          # Pinned Python dependencies
-│   ├── requirements-eval.txt     # Eval-only venv (ragas; openai pin conflicts with the app venv)
 │   ├── .env.example              # GROQ_API_KEY= placeholder
 │   └── .env                      # (Gitignored) Actual API keys
 ├── frontend/
@@ -149,11 +142,10 @@ sentinel-rag/
 │   ├── tailwind.config.ts        # Dark mode + Inter font
 │   ├── next.config.ts            # Plain Next.js config (no API proxy — CORS handles it)
 │   ├── app/
-│   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 4 links, dark-mode toggle, health dot)
+│   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 3 links, dark-mode toggle, health dot)
 │   │   ├── page.tsx              # Screen 1: Trace View — SSE pipeline animation, query + answer panel
 │   │   ├── strategy/page.tsx     # Screen 2: Strategy Lab — dropdowns, side-by-side live comparison
 │   │   ├── documents/page.tsx    # Screen 3: Documents — upload/list/delete + live reindex status
-│   │   ├── scoreboard/page.tsx   # Screen 4: Scoreboard — CSS bar charts for RAGAS metrics + latency
 │   │   ├── error.tsx             # Route error boundary
 │   │   └── not-found.tsx         # 404 page
 │   ├── components/
@@ -323,20 +315,6 @@ CREATE TABLE IF NOT EXISTS traces (
     latency_ms INTEGER NOT NULL,
     retries INTEGER NOT NULL DEFAULT 0
 );
-
-CREATE TABLE IF NOT EXISTS eval_results (
-    id TEXT PRIMARY KEY,
-    strategy TEXT NOT NULL,
-    correction_enabled INTEGER NOT NULL,
-    question TEXT NOT NULL,
-    faithfulness REAL,
-    answer_relevancy REAL,
-    context_precision REAL,          -- requires reference contexts in test set
-    context_recall REAL,             -- requires reference contexts in test set
-    latency_ms INTEGER,
-    run_timestamp TEXT NOT NULL,
-    corpus_version TEXT             -- ingest.corpus_version() at eval time (provenance)
-);
 ```
 
 ---
@@ -373,10 +351,9 @@ python -m app.verify              # Queries all indexes, prints top chunks
 |---|---|---|
 | **M2** | Full pipeline from CLI | Hybrid retrieval + RRF, Router, Grader, HyDE, Pipeline with full JSON trace. Test 5 questions (incl. 1 unanswerable, 1 HyDE trigger). |
 | **M3** | API server | FastAPI endpoints, SSE streaming (first-event `trace_id`, disconnect stops between steps), SQLite (WAL) persistence, startup warm-up + index guard, health endpoint |
-| **M4** | Evaluation | `build_testset.py` (`{question, answer, contexts[]}`), `run_ragas.py` (6 combos), `results.json` |
-| **M5** | Frontend | Trace View, Strategy Lab, Scoreboard. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
+| **M5** | Frontend | Trace View, Strategy Lab. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
 | **M7** | Document upload | `documents.py` (upload/list/delete, hash dedupe, path-traversal safe), `/api/documents` + `/api/reindex`, live background reindex, Documents page |
-| **M6** | Polish | README with real eval numbers, `demo.md` click-path, deck + guide generators |
+| **M6** | Polish | README, `demo.md` click-path, deck + guide generators |
 
 ---
 
@@ -386,7 +363,6 @@ python -m app.verify              # Queries all indexes, prints top chunks
 - `verify.py` queries all 3 FAISS + all 3 BM25 indexes with known queries
 - Pipeline runs 5 test questions: 1 normal, 1 simple, 1 unanswerable, 1 HyDE-retry trigger, 1 forced LLM error → asserts correct `final_status`
 - Citation validator unit check: out-of-range `[n]` are dropped/remapped
-- RAGAS eval generates `results.json` across all 6 strategy combos
 - Query-length cap rejects >2000 chars
 - Frontend: zero console errors
 

@@ -26,7 +26,6 @@ def get_image_data_uri(filename: str) -> str:
 
 img_trace = get_image_data_uri("ui-trace-loaded.png")
 img_cite = get_image_data_uri("ui-cite.png")
-img_scoreboard = get_image_data_uri("deck-scoreboard.png")
 img_documents = get_image_data_uri("documents.png")
 img_strategy = get_image_data_uri("strategy.png")
 
@@ -438,99 +437,19 @@ html_content = f"""<!DOCTYPE html>
   <div class="caption">Figure 3: Strategy Lab comparing Fixed Window vs Hierarchical chunking side by side.</div>
 </div>
 
-<h3>Screen 4: Scoreboard (/scoreboard &mdash; The Empirical Receipts)</h3>
-<p>Shows the real RAGAS evaluation metrics per strategy. It proves with hard numbers that hallucination is near zero &mdash; and it shows every strategy, including the rows where the proxy metrics look bad.</p>
-
-<div class="figure">
-  <img src="{img_scoreboard}" alt="Scoreboard">
-  <div class="caption">Figure 4: Scoreboard displaying verified RAGAS metrics, latency bars, and performance cards.</div>
-</div>
-
 <!-- CHAPTER 6 -->
 <div class="page-break"></div>
-<h2>Chapter 6: Understanding the RAGAS Benchmark Table</h2>
-<p>During your presentation, you will show this table. Here is what every column means in simple terms:</p>
-
-<table>
-  <tr>
-    <th>Strategy</th>
-    <th>Self-Correction</th>
-    <th>Faithfulness (No Hallucination)</th>
-    <th>Answer Relevancy (On-Topic)</th>
-    <th>Context Recall (Found Everything)</th>
-    <th>Average Latency</th>
-  </tr>
-  <tr>
-    <td><strong>Fixed Window</strong></td>
-    <td><span class="badge badge-emerald">ON (HyDE)</span></td>
-    <td><strong>1.000 (100%)</strong></td>
-    <td>0.868 (87%)</td>
-    <td><strong>1.000 (100%)</strong></td>
-    <td>~15.2s</td>
-  </tr>
-  <tr>
-    <td><strong>Fixed Window</strong></td>
-    <td><span class="badge badge-blue">OFF</span></td>
-    <td>0.967 (97%)</td>
-    <td>0.837 (84%)</td>
-    <td><strong>1.000 (100%)</strong></td>
-    <td>~14.7s</td>
-  </tr>
-  <tr>
-    <td><strong>Hierarchical</strong></td>
-    <td><span class="badge badge-emerald">ON (HyDE)</span></td>
-    <td>0.871 (87%)</td>
-    <td>0.731 (73%)</td>
-    <td>0.900 (90%)</td>
-    <td>~8.3s</td>
-  </tr>
-  <tr>
-    <td><strong>Hierarchical</strong></td>
-    <td><span class="badge badge-blue">OFF</span></td>
-    <td>0.871 (87%)</td>
-    <td>0.713 (71%)</td>
-    <td>0.900 (90%)</td>
-    <td>~7.2s</td>
-  </tr>
-  <tr>
-    <td><strong>Semantic Splits</strong></td>
-    <td><span class="badge badge-emerald">ON (HyDE)</span></td>
-    <td>0.900 (90%)</td>
-    <td>0.854 (85%)</td>
-    <td>0.300 (30%)</td>
-    <td>~1.9s</td>
-  </tr>
-  <tr>
-    <td><strong>Semantic Splits</strong></td>
-    <td><span class="badge badge-blue">OFF</span></td>
-    <td>0.925 (93%)</td>
-    <td>0.861 (86%)</td>
-    <td>0.300 (30%)</td>
-    <td>~2.5s</td>
-  </tr>
-</table>
-
-<div class="callout callout-blue">
-  <strong>How to Explain These Numbers on Stage:</strong><br>
-  1. <strong>Faithfulness is 0.87&ndash;1.00:</strong> every generated sentence is backed by a citation from the retrieved chunks, so the system rarely states anything it cannot ground.<br>
-  2. <strong>Full matrix:</strong> all six combos are measured (n=10 each, 60 cases). Semantic is the fastest (~2s), while fixed scores highest on the proxy precision/recall &mdash; those columns compare against whole-document contexts, so they do not rank chunkers.<br>
-  3. <strong>Speed Note:</strong> Semantic ~2s, hierarchical ~7&ndash;8s, fixed ~15s per query. Measured numbers only &mdash; we publish exactly what the harness returned.
-</div>
-
-<!-- CHAPTER 7 -->
-<div class="page-break"></div>
-<h2>Chapter 7: Live Presentation Script (Exact Words to Say on Stage)</h2>
+<h2>Chapter 6: Live Presentation Script (Exact Words to Say on Stage)</h2>
 <p>The word-for-word script and click-by-click demo path live in <code>demo.md</code> and
 <code>PRESENTATION_MASTER_GUIDE.md</code> in the repo &mdash; those are the canonical copies;
 this guide links to them instead of duplicating the text (duplicated scripts drift apart).</p>
-<p><strong>Summary of the 4 Live Demo Actions:</strong> (1) a simple lookup with a citation
+<p><strong>Summary of the 3 Live Demo Actions:</strong> (1) a simple lookup with a citation
 click, (2) a hard query that triggers the HyDE retry badge and recovers, (3) an
-out-of-corpus question that refuses to hallucinate, (4) the Scoreboard with the
-full six-combo matrix.</p>
+out-of-corpus question that refuses to hallucinate.</p>
 
-<!-- CHAPTER 8 -->
+<!-- CHAPTER 7 -->
 <div class="page-break"></div>
-<h2>Chapter 8: Q&amp;A Defense (How to Answer Any Hard Question)</h2>
+<h2>Chapter 7: Q&amp;A Defense (How to Answer Any Hard Question)</h2>
 <p>If someone in the audience or an evaluator asks a difficult question, use these simple, confident answers:</p>
 
 <div class="jargon-box">

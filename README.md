@@ -7,7 +7,7 @@
 
 > "Most RAG systems fail silently. Mine knows when it's failing, fixes itself, and shows you the receipts."
 
-A locally hosted, self-correcting RAG laboratory. Ask a question and watch the answer get routed, retrieved, graded, rewritten with HyDE, and cited — with every step on screen. Three chunking strategies, a hybrid BM25 + FAISS retriever, and a RAGAS scoreboard.
+A locally hosted, self-correcting RAG laboratory. Ask a question and watch the answer get routed, retrieved, graded, rewritten with HyDE, and cited — with every step on screen. Three chunking strategies and a hybrid BM25 + FAISS retriever.
 
 ## Screenshots
 
@@ -23,7 +23,6 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 - **Hybrid retrieval.** BM25 + FAISS fused with reciprocal rank fusion, so lexical and vector hits both count.
 - **Self-correction.** An LLM grader scores the retrieved passages; a low score triggers a HyDE rewrite and a re-retrieve, capped at 2 retries.
 - **Receipts.** Every step streams to the UI over SSE and is stored in SQLite, with citations that jump to the source chunk.
-- **Honest evaluation.** A RAGAS harness runs the strategy × correction matrix; the scoreboard reads the same numbers as this README.
 
 ## Quickstart
 
@@ -47,7 +46,7 @@ pnpm dev                      # http://localhost:3000
 Ask **`What is LoRA?`** — the reliable success demo. The navbar health dot turns amber if the indexes are missing.
 
 <details>
-<summary>Full setup: CLI, tests, evaluation, generated docs</summary>
+<summary>Full setup: CLI, tests, generated docs</summary>
 
 ### CLI
 
@@ -68,28 +67,9 @@ cd frontend && pnpm lint && pnpm build
 
 The backend suite runs deterministic self-checks (`scripts/check_*.py`) with stubbed embeddings and temp indexes — no network, no model download. CI runs both suites on every push.
 
-### Evaluation (separate `.venv-eval`)
-
-```bash
-python scripts/gen_corpus.py                               # seed the corpus the testset was built on
-uv venv .venv-eval --python 3.12
-uv pip install --python .venv-eval/bin/python torch --index-url https://download.pytorch.org/whl/cpu
-uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
-
-.venv-eval/bin/python -m eval.build_testset              # 50 Q/A rows -> eval/testset.jsonl
-.venv-eval/bin/python -m eval.run_ragas --smoke          # 1 combo, 5 questions
-.venv-eval/bin/python -m eval.run_ragas --limit 10       # first 10 rows per combo
-.venv-eval/bin/python -m eval.run_ragas --limit 0 --resume   # fill gaps across quota resets
-```
-
-The harness pools every `GROQ_API_KEY*` in the environment across separate Groq
-accounts (pipeline round-robin, one judge per account) and refuses to overwrite a
-good run when the LLM is rate-limited: it probes first, aborts on a high error
-rate, and keeps completed combos.
-
 ### Generated deliverables (gitignored)
 
-- `make_deck.py` → `Sentinel_RAG.pptx` (17 slides)
+- `make_deck.py` → `Sentinel_RAG.pptx` (15 slides)
 - `build_plain_english_guide.py` → `Sentinel_RAG_Comprehensive_Guide.{html,pdf}`
 
 </details>
@@ -117,61 +97,23 @@ flowchart TD
 
 A router labels the query simple or complex to pick a retrieval depth. The retriever fuses BM25 and vector hits, the grader judges whether the passages can answer the query, and a failure sends the query through a hypothetical-document rewrite before one more retrieval. The final answer must cite the passages it used; an answer that cites nothing is reported as `not_found` instead of being passed off as grounded. See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full design.
 
-## Results
-
-Full matrix on the 50-doc demo corpus: **6 of 6 combos**, `n = 10` questions per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge (the `gpt-oss-120b` free-tier quota was exhausted during the first runs).
-
-| Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
-|---|---|---|---|---|---|---|
-| fixed | on  | 1.000 | 0.868 | 0.950 | 1.000 | 15,201 |
-| fixed | off | 0.967 | 0.837 | 0.950 | 1.000 | 14,731 |
-| hierarchical | on  | 0.871 | 0.731 | 0.850 | 0.900 | 8,298 |
-| hierarchical | off | 0.871 | 0.713 | 0.850 | 0.900 | 7,206 |
-| semantic | on  | 0.900 | 0.854 | 0.250 | 0.300 | 1,930 |
-| semantic | off | 0.925 | 0.861 | 0.250 | 0.300 | 2,467 |
-
-`source_doc_hit_rate` is 1.00 for both fixed runs and 0.90 for the other four. Semantic retrieval is **much faster**, and its precision/recall look low only because the non-LLM proxy compares against whole-document reference contexts — those two columns are **not** a quality ranking across chunkers.
-
-### Run the evaluation from the UI
-
-With the eval venv installed, open **Scoreboard → Evaluate corpus**. The job
-generates one question per document, runs the 3 × 2 matrix in the background
-through the isolated interpreter, and reloads the table when it finishes.
-Progress, failures and the job log path are shown on the page.
-
-It needs at least 5 documents (`EVAL_MIN_DOCS`), evaluates `EVAL_ROWS` questions
-per combo (default 10), and uses `EVAL_PYTHON` (default `.venv-eval/bin/python`).
-Results are stamped with the corpus version they were measured on; uploading or
-deleting documents mid-run leaves them correctly labelled as older data.
-
-<details>
-<summary>Method and caveats</summary>
-
-- The judge is the same model family as the pipeline (self-grading inflates faithfulness/relevancy).
-- Context precision/recall are non-LLM string-similarity proxies against whole-document reference contexts — they measure document identity, not passage quality, and are **not comparable across chunking strategies**.
-- An earlier `results.json` was invalid: 118/120 answers were the fallback message. The cause was a citation-parsing bug — `gpt-oss-120b` sometimes wraps citations in CJK/fullwidth brackets (`【1】`), which the ASCII-only validator rejected, discarding grounded answers as ungrounded. `app/generate.py` now normalizes those markers, the harness records per-sample diagnostics (`final_status`, `fallback_reason`, `grader_score`, `source_doc_hit`), and the bad rows were removed.
-
-</details>
-
 ## Engineering notes
 
 <details>
 <summary>Why the code looks the way it does</summary>
 
 - **Atomic index swaps.** A reindex writes to a staging directory and swaps files while holding the retriever lock, so a query can never load a new `.faiss` against an old `chunks.json`. A count tripwire fails loudly if the pair is ever mismatched.
-- **Scoped eval writes.** A run deletes and rewrites only the combos that produced records. An aborted run keeps the last good rows instead of emptying the scoreboard.
 - **Key pooling.** Requests round-robin across `GROQ_API_KEY*` accounts and evict a key on a 401, with the pool guarded by a lock.
 - **Cancellation is a trace.** If the client disconnects mid-stream, the server persists a `cancelled` trace with the steps it got instead of losing the run.
 - **Untrusted corpus text.** Uploaded passages are delimited and the system prompt says to treat them as data, not instructions. It is mitigation, not a guarantee.
-- **Tested where it matters.** The stream hook's abort/reset behavior, the index swap, the reindex race, and the eval-write scoping all have tests.
+- **Tested where it matters.** The stream hook's abort/reset behavior, the index swap, and the reindex race all have tests.
 
 </details>
 
 ## Limits
 
 - Local only — no hosted demo, so it uses your Groq free-tier quota.
-- The corpus is synthetic AI/ML text; the metrics say more about the pipeline than about real documents.
-- Free-tier rate limits make a full 6-combo matrix a multi-run job; the harness resumes instead of restarting.
+- The corpus is synthetic AI/ML text; answers are grounded in whatever you upload.
 
 ## License
 
