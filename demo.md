@@ -90,6 +90,7 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
   ```
 * **Talk Track:**
   > "Chunking strategy dictates retrieval performance. Fixed chunks often cut across sentence boundaries. Hierarchical chunking searches small 256-token children for precision but supplies the 1024-token parent context to the generator."
+* **After the run:** point at the **delta strip** under the panels — latency winner, retries, and status side by side. That comparison is the point of the page.
 
 ---
 
@@ -108,7 +109,7 @@ talk track lives in `PRESENTATION_MASTER_GUIDE.md`; the printed deep-dive is
 * **Highlight the Table & Charts:**
   - **Faithfulness:** 0.97–1.00 for the `fixed` runs on record (hallucinations prevented).
   - **Doc hit rate:** 1.00 — every retrieval found the right source document.
-  - **Honest scope:** 2 of 6 combos measured so far (`fixed`, n=10 each); the rest are pending a real run — the scoreboard says so.
+  - **What to point at:** all six combos are measured (n=10 each, 60 cases). Semantic is the fastest (~2 s) while fixed scores highest on the proxy precision/recall — those two columns compare against whole-document contexts, so they don't rank chunkers.
 * **Talk Track:**
   > "We ran the pipeline and a RAGAS judge over a held-together test set and published exactly what came back, including what we haven't measured yet. The receipts are right here."
 

@@ -197,9 +197,9 @@ Use this section while practicing your presentation with `Sentinel_RAG.pptx`.
 * **Transition:** *"With the pipeline hardened, let's look at the benchmark evaluation results."*
 
 ### Slide 12: Empirical Results (RAGAS Benchmark)
-* **Visual:** Benchmark table: 2 of 6 combos measured (Fixed Window), the rest explicitly marked "pending an honest run".
+* **Visual:** Benchmark table: all six combos measured at n=10, including the two semantic rows where the proxy precision/recall look weak.
 * **What to Say:**
-  > *"We ran the pipeline and a RAGAS judge over our test set and published exactly what came back. The two Fixed Window combos are measured: faithfulness is near 1.000, every retrieval hit the right source document, and both settings hold 1.00 context recall. The other four combos are marked pending — we would rather show an honest gap than a number we cannot stand behind."*
+  > *"We ran the pipeline and a RAGAS judge over our test set and published all six combos — 60 measured cases. Faithfulness stays between 0.87 and 1.00, and retrieval hit the right source document in 90 to 100 percent of samples. Semantic chunking answers in about two seconds versus fifteen for fixed. The precision and recall columns compare against whole-document contexts, so I don't use them to rank chunkers — the retrieval hit rate is the honest comparison."*
 * **Transition:** *"Now, let's see how this looks in the live web application."*
 
 ### Slide 13: UI — Trace View

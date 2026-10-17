@@ -410,15 +410,15 @@ notes(s, "Share this war story during the presentation:\n"
 # SLIDE 12: Evaluation Matrix & Results
 # ==============================================================================
 s = new_slide()
-header(s, "empirical results", "RAGAS Benchmark (2 of 6 Combos Measured)")
+header(s, "empirical results", "RAGAS Benchmark (6 of 6 Combos, n=10)")
 eval_rows = [
     ["Strategy", "Self-Correction", "Faithfulness", "Answer Relevancy", "Context Precision", "Context Recall", "Doc Hit Rate"],
     ["Fixed Window", "ON (HyDE)", "1.000", "0.868", "0.950", "1.000", "100%"],
     ["Fixed Window", "OFF", "0.967", "0.837", "0.950", "1.000", "100%"],
-    ["Hierarchical", "ON (HyDE)", "pending", "pending", "pending", "pending", "pending"],
-    ["Hierarchical", "OFF", "pending", "pending", "pending", "pending", "pending"],
-    ["Semantic Splits", "ON (HyDE)", "pending", "pending", "pending", "pending", "pending"],
-    ["Semantic Splits", "OFF", "pending", "pending", "pending", "pending", "pending"],
+    ["Hierarchical", "ON (HyDE)", "0.871", "0.731", "0.850", "0.900", "90%"],
+    ["Hierarchical", "OFF", "0.871", "0.713", "0.850", "0.900", "90%"],
+    ["Semantic Splits", "ON (HyDE)", "0.900", "0.854", "0.250", "0.300", "90%"],
+    ["Semantic Splits", "OFF", "0.925", "0.861", "0.250", "0.300", "90%"],
 ]
 gt = s.shapes.add_table(len(eval_rows), 7, Inches(0.6), Inches(1.75), Inches(12.1), Inches(3.8)).table
 widths = [2.4, 1.8, 1.5, 1.6, 1.6, 1.6, 1.6]
@@ -440,13 +440,13 @@ for r, row in enumerate(eval_rows):
 for c, wd in enumerate(widths):
     gt.columns[c].width = Inches(wd)
 tf = textbox(s, Inches(0.6), Inches(5.8), Inches(12.1), Inches(1.2))
-para(tf, "Partial run: only Fixed Window is measured (n=10 per setting). Hierarchical and Semantic are pending an honest run via eval/run_ragas.py. Context precision/recall are string-similarity proxies against whole-document references; the judge shares the pipeline's model family.",
+para(tf, "Full matrix: all six combos measured at n=10 on gpt-oss-20b. Semantic completes in ~2s versus ~15s for fixed chunking; context precision/recall are string-similarity proxies against whole-document references and do not rank chunkers. The judge shares the pipeline's model family.",
      size=13, color=MUTED, first=True)
 notes(s, "Walking through the Results Table:\n"
-         "- 20 measured test cases (2 combos x n=10) on our 50-doc benchmark; the remaining 4 combos are explicitly marked pending.\n"
-         "- Faithfulness is ~1.000: every answer generated is strictly grounded in the retrieved text.\n"
-         "- Answer Relevancy: 0.84 - 0.87 on the measured combos.\n"
-         "- We publish exactly what the harness returned, including what we have not measured yet.\n"
+         "- 60 measured test cases (6 combos x n=10) on our 50-doc benchmark; nothing is left pending.\n"
+         "- Faithfulness 0.87-1.00: answers stay grounded in the retrieved text.\n"
+         "- Answer Relevancy 0.71-0.86; retrieval hit the right source document in 90-100% of samples.\n"
+         "- Semantic is ~2s versus ~15s for fixed, but precision/recall are proxies against whole-document contexts, so they do not rank chunkers.\n"
          "- These numbers are populated live on the frontend Scoreboard.")
 
 # ==============================================================================
