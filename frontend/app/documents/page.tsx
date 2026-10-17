@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Loader2, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { deleteDocument, getDocuments, triggerReindex, uploadDocument } from "@/lib/api";
@@ -12,7 +10,7 @@ import type { DocumentsPayload } from "@/lib/types";
 
 const ACCEPT_EXT = [".md", ".txt", ".pdf"];
 
-export default function Documents() {
+export default function DocumentsPage() {
   const [data, setData] = useState<DocumentsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -81,15 +79,15 @@ export default function Documents() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-6 py-10">
       <PageHeader
         title="Documents"
-        description="Upload markdown, text, or PDF files. Each upload re-embeds the corpus and rebuilds all three indexes."
+        description="The corpus is whatever sits in this list. Upload files and the indexes rebuild in the background."
       />
 
-      <Card
-        className={`mb-6 border-dashed transition-colors ${
-          drag ? "border-primary/70 bg-primary/[0.06]" : "border-border/70"
+      <div
+        className={`border p-8 text-center transition-colors ${
+          drag ? "border-destructive" : "border-border"
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -102,121 +100,123 @@ export default function Documents() {
           upload(e.dataTransfer.files);
         }}
       >
-        <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Upload className="h-5 w-5" aria-hidden />
-          </span>
-          <div>
-            <p className="text-sm font-medium">Drop files to ingest</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {ACCEPT_EXT.join(" · ")} — the corpus re-embeds on upload
-            </p>
-          </div>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            accept=".md,.txt,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              upload(e.target.files);
-              e.target.value = "";
-            }}
-          />
-          <Button
-            variant="secondary"
-            onClick={() => inputRef.current?.click()}
-            disabled={busy}
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Choose files
-          </Button>
-        </CardContent>
-      </Card>
+        <p className="font-display text-lg">Add documents</p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          Markdown, plain text or PDF. Drop files here, or choose them.
+        </p>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".md,.txt,.pdf"
+          className="hidden"
+          onChange={(e) => {
+            upload(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <Button
+          className="mt-4"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Choose files
+        </Button>
+      </div>
 
       {error && (
-        <p role="alert" className="mb-4 text-sm text-destructive">
+        <p
+          role="alert"
+          className="mt-4 border-l-2 border-l-destructive py-2 pl-3 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
 
-      <Card>
-        <CardHeader className="grid-cols-[1fr_auto] items-center">
-          <CardTitle className="flex items-center gap-2 text-sm">
+      <section className="mt-10">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="flex items-baseline gap-2 font-display text-xl">
             Corpus
-            <Badge variant="secondary">{data ? data.documents.length : "—"}</Badge>
+            <span className="font-mono text-[13px] text-muted-foreground">
+              {data ? data.documents.length : "—"}
+            </span>
             {reindexing && (
-              <span className="flex items-center gap-1 text-xs font-normal text-amber-500">
-                <Loader2 className="h-3 w-3 animate-spin" /> reindexing…
+              <span className="flex items-center gap-1.5 text-[11px] text-[#8a6a2f] dark:text-[#d9a441]">
+                <Loader2 className="h-3 w-3 animate-spin" /> reindexing
               </span>
             )}
-          </CardTitle>
-          <div className="flex items-center gap-2">
+          </h2>
+          <div className="flex items-baseline gap-4">
             <span
-              className="max-w-[10rem] truncate font-mono text-[11px] text-muted-foreground"
+              className="max-w-[12rem] truncate font-mono text-[11px] text-muted-foreground"
               title={data?.corpus_version || undefined}
             >
               v{(data?.corpus_version ?? "—").slice(0, 12)}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              type="button"
               onClick={() =>
                 triggerReindex()
                   .then(refresh)
                   .catch((e) => setError((e as Error).message))
               }
               disabled={reindexing}
+              className="flex items-center gap-1 text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-50"
             >
-              <RefreshCw className="h-3.5 w-3.5" /> Reindex
-            </Button>
+              <RefreshCw className="h-3 w-3" /> Reindex
+            </button>
           </div>
-        </CardHeader>
-        <CardContent>
-          <input
-            aria-label="Filter documents"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter by name…"
-            className="mb-3 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+        </div>
+
+        <input
+          aria-label="Filter documents"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name…"
+          className="mt-4 h-9 w-full border-0 border-b border-border bg-transparent px-0 text-[13px] outline-none placeholder:text-muted-foreground/70"
+        />
+
+        <div className="mt-4">
           {data === null && !error && (
             <div className="space-y-2">
-              <Skeleton className="h-8 rounded-md" />
-              <Skeleton className="h-8 rounded-md" />
-              <Skeleton className="h-8 rounded-md" />
+              <Skeleton className="h-7 w-full rounded-none" />
+              <Skeleton className="h-7 w-full rounded-none" />
+              <Skeleton className="h-7 w-full rounded-none" />
             </div>
           )}
           {data !== null && (
-            <ul className="divide-y divide-border/60">
-            {docs.map((d) => (
-              <li key={d.name} className="flex items-center gap-3 py-2 text-sm">
-                <FileText className="h-4 w-4 text-muted-foreground" aria-hidden />
-                <span className="flex-1 truncate">{d.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {d.tokens} tok
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Delete ${d.name}`}
-                  onClick={() => remove(d.name)}
+            <ul>
+              {docs.map((d) => (
+                <li
+                  key={d.name}
+                  className="flex items-center gap-4 border-t border-border/70 py-2.5 text-[13px]"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </li>
-            ))}
-            {data && docs.length === 0 && (
-              <li className="py-6 text-center text-sm text-muted-foreground">
-                {data.documents.length === 0
-                  ? "No documents yet."
-                  : "No documents match that filter."}
-              </li>
-            )}
+                  <span className="flex-1 truncate">{d.name}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    {d.tokens} tok
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${d.name}`}
+                    onClick={() => remove(d.name)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              ))}
+              {data && docs.length === 0 && (
+                <li className="border-t border-border/70 py-8 text-center text-[13px] text-muted-foreground">
+                  {data.documents.length === 0
+                    ? "The corpus is empty. Add a document to begin."
+                    : "No documents match that filter."}
+                </li>
+              )}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

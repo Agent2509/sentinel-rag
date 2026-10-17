@@ -8,32 +8,20 @@ import {
   Search,
   type LucideIcon,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnswerPanel } from "@/components/answer-panel";
 import { ChunkCard } from "@/components/chunk-card";
 import type { Step } from "@/lib/types";
 
 export const STAGE_META: Record<string, { icon: LucideIcon; label: string }> = {
-  routing: { icon: Route, label: "Routing" },
-  retrieval: { icon: Search, label: "Retrieval" },
-  grading: { icon: Gauge, label: "Grading" },
-  hyde_rewrite: { icon: RefreshCw, label: "HyDE rewrite" },
-  generation: { icon: MessageSquareText, label: "Generation" },
-};
-
-// Coloured left rail per stage: the pipeline reads as a story at a glance.
-export const STAGE_ACCENT: Record<string, string> = {
-  routing: "border-l-sky-500/70",
-  retrieval: "border-l-primary/70",
-  grading: "border-l-violet-500/70",
-  hyde_rewrite: "border-l-amber-500/70",
-  generation: "border-l-emerald-500/70",
+  routing: { icon: Route, label: "Route" },
+  retrieval: { icon: Search, label: "Retrieve" },
+  grading: { icon: Gauge, label: "Grade" },
+  hyde_rewrite: { icon: RefreshCw, label: "Retry" },
+  generation: { icon: MessageSquareText, label: "Answer" },
 };
 
 export function TraceStep({
   step,
-  index = 0,
   threshold = null,
   onCitation,
   highlightedChunk,
@@ -48,70 +36,46 @@ export function TraceStep({
     icon: Search,
     label: step.action,
   };
-  const Icon = meta.icon;
-
-  // Retry and success are carried by border + badge text + icon, not color alone.
-  const tone =
-    step.action === "hyde_rewrite"
-      ? "retry"
-      : step.action === "generation"
-        ? "answer"
-        : "idle";
+  const retry = step.action === "hyde_rewrite";
+  const answered = step.action === "generation";
 
   return (
-    <Card
-      style={{ animationDelay: `${index * 20}ms`, animationFillMode: "backwards" }}
-      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 border-l-2 motion-reduce:animate-none ${
-        STAGE_ACCENT[step.action] ?? "border-l-border"
-      }`}
-    >
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm font-medium">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-xs">
-            {step.step_number}
+    <section className="border-t border-border py-5">
+      <div className="flex items-baseline gap-3">
+        <span className="w-4 shrink-0 text-right font-mono text-[11px] text-muted-foreground">
+          {step.step_number}
+        </span>
+        <span className="text-[13px] font-medium">{meta.label}</span>
+        {retry && (
+          <span className="font-sans text-[10px] uppercase tracking-wide text-destructive">
+            retry
           </span>
-          <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
-          <span>{meta.label}</span>
-          {tone === "retry" && (
-            <Badge
-              variant="outline"
-              className="gap-1 border-amber-500/50 text-amber-500"
-            >
-              <span
-                className="h-1.5 w-1.5 rounded-full bg-amber-500 motion-safe:animate-pulse"
-                aria-hidden
-              />
-              retrying
-            </Badge>
-          )}
-          {tone === "answer" && (
-            <Badge variant="outline" className="border-emerald-500/50 text-emerald-500">
-              answered
-            </Badge>
-          )}
-          <span className="ml-auto font-mono text-xs font-normal text-muted-foreground">
-            {step.duration_ms} ms
+        )}
+        {answered && (
+          <span className="font-sans text-[10px] uppercase tracking-wide text-muted-foreground">
+            answered
           </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+        )}
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+          {step.duration_ms} ms
+        </span>
+      </div>
+
+      <div className="mt-3 space-y-3 pl-7 text-[13px] leading-relaxed">
         {step.action === "routing" && step.result && (
-          <div className="flex items-center gap-2">
-            <Badge variant={step.result.type === "simple" ? "secondary" : "default"}>
-              {step.result.type}
-            </Badge>
-            <span className="text-muted-foreground">{step.result.reason}</span>
-          </div>
+          <p className="text-muted-foreground">
+            <span className="text-foreground">{step.result.type}</span> — {step.result.reason}
+          </p>
         )}
 
         {step.action === "retrieval" && (
           <>
             {step.query_used && (
-              <p className="font-mono text-xs text-muted-foreground">
-                query: {step.query_used}
+              <p className="font-mono text-[11px] text-muted-foreground">
+                {step.query_used}
               </p>
             )}
-            <div className="space-y-2">
+            <div>
               {step.chunks?.map((chunk) => (
                 <ChunkCard
                   key={chunk.chunk_id}
@@ -128,7 +92,7 @@ export function TraceStep({
         )}
 
         {step.action === "hyde_rewrite" && step.hypothetical_document && (
-          <p className="whitespace-pre-wrap text-muted-foreground">
+          <p className="whitespace-pre-wrap font-serif text-[15px] italic leading-relaxed text-muted-foreground">
             {step.hypothetical_document}
           </p>
         )}
@@ -140,8 +104,8 @@ export function TraceStep({
             onCitation={onCitation}
           />
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -154,49 +118,39 @@ function GradeView({
 }) {
   if (grade.error) {
     return (
-      <div className="space-y-2">
-        <Badge variant="outline" className="border-destructive/50 text-destructive">
-          grader failed
-        </Badge>
+      <div className="space-y-1">
+        <p className="text-destructive">The grader failed on this pass.</p>
         <p className="text-muted-foreground">{grade.reason}</p>
       </div>
     );
   }
 
-  // without a known threshold, show the score but judge nothing
   const relevant =
     threshold === null || grade.score === null
       ? null
       : grade.score >= threshold;
   const pct = Math.round((grade.score ?? 0) * 100);
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        {relevant !== null && (
-          <Badge variant={relevant ? "default" : "destructive"}>
-            {relevant ? "✓ relevant" : "✗ low"}
-          </Badge>
-        )}
-        <span className="font-mono text-xs text-muted-foreground">
-          score {grade.score === null ? "n/a" : grade.score.toFixed(2)}
+      <div className="flex items-baseline gap-3">
+        <span className="font-mono text-[12px]">{grade.score?.toFixed(2) ?? "n/a"}</span>
+        <span className="text-[11px] text-muted-foreground">
+          {relevant === null
+            ? "no threshold"
+            : relevant
+              ? "pass"
+              : "below threshold"}
           {threshold !== null && ` · pass ≥ ${threshold}`}
         </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-secondary">
+      <div className="h-1 w-full bg-secondary">
         <div
-          className={`h-full rounded-full ${
-            relevant === null
-              ? "bg-primary"
-              : relevant
-                ? "bg-emerald-500"
-                : "bg-amber-500"
-          }`}
+          className={`h-full ${relevant === false ? "bg-destructive" : "bg-foreground"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      {grade.reason && (
-        <p className="text-muted-foreground">{grade.reason}</p>
-      )}
+      {grade.reason && <p className="text-muted-foreground">{grade.reason}</p>}
     </div>
   );
 }

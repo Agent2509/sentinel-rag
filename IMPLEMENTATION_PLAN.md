@@ -44,7 +44,7 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **CORS** | Middleware allowing `http://localhost:3000`; frontend calls backend directly (needed for SSE). **No Next.js API proxy** — pick one, not both. |
 | **LLM client** | Thin helper around the `openai` SDK (both providers are OpenAI-compatible) — `client(base_url, api_key)`. No wrapper class. |
 | **Chunkers** | Three duck-typed functions with the same signature `chunk(text, doc_title) -> list[Chunk]`. No ABC/base class. |
-| **Dark mode** | Default dark, with light mode toggle |
+| **Dark mode** | Light default (paper), dark mode as a lamp-lit inversion |
 | **Ask layout** | Two-column: left = pipeline steps (vertical flowchart), right = query input + answer panel |
 | **Trace animation** | 300ms stagger, slide-in, amber pulse for retries, green glow for success. **Respects `prefers-reduced-motion`; state also conveyed by icon + text, not color alone.** |
 | **Accessibility** | Trace region is `aria-live="polite"`; nav and toggles keyboard-reachable with labels; text contrast ≥ 4.5:1 in both themes |
@@ -139,7 +139,7 @@ sentinel-rag/
 ├── frontend/
 │   ├── package.json              # Next.js + Tailwind + shadcn/ui (no chart lib)
 │   ├── pnpm-lock.yaml            # Lock file
-│   ├── tailwind.config.ts        # Dark mode + Inter font
+│   ├── globals.css              # Paper/ink tokens, type scale, one motion
 │   ├── next.config.ts            # Plain Next.js config (no API proxy — CORS handles it)
 │   ├── app/
 │   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 3 links, dark-mode toggle, health dot)
@@ -351,7 +351,7 @@ python -m app.verify              # Queries all indexes, prints top chunks
 |---|---|---|
 | **M2** | Full pipeline from CLI | Hybrid retrieval + RRF, Router, Grader, HyDE, Pipeline with full JSON trace. Test 5 questions (incl. 1 unanswerable, 1 HyDE trigger). |
 | **M3** | API server | FastAPI endpoints, SSE streaming (first-event `trace_id`, disconnect stops between steps), SQLite (WAL) persistence, startup warm-up + index guard, health endpoint |
-| **M5** | Frontend | Ask, Compare. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
+| **M5** | Frontend | Ask, Compare. Light/dark paper-and-ink UI, one timing-strip motion, `aria-live` trace, responsive. |
 | **M7** | Document upload | `documents.py` (upload/list/delete, hash dedupe, path-traversal safe), `/api/documents` + `/api/reindex`, live background reindex, Documents page |
 | **M6** | Polish | README, `demo.md` click-path, deck + guide generators |
 

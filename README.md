@@ -11,11 +11,11 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 
 ## Screenshots
 
-![Ask — a live run: 2.9 s, grounded answer with clickable citations](docs/screenshots/ui-trace-success.png)
+![Ask — a live run: 2.8 s, grounded answer with footnoted citations](docs/screenshots/ui-trace-success.png)
 
-| Compare — side-by-side + delta strip | Light theme |
+| Compare — side-by-side and delta | Dark theme |
 |---|---|
-| ![Compare](docs/screenshots/ui-strategy-delta.png) | ![Ask in light mode](docs/screenshots/ui-trace-light.png) |
+| ![Compare](docs/screenshots/ui-strategy-delta.png) | ![Ask in dark mode](docs/screenshots/ui-trace-dark.png) |
 
 ## What it does
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import type { Chunk } from "@/lib/types";
 
 const SNIPPET = 320;
@@ -25,39 +24,35 @@ export function ChunkCard({
   return (
     <div
       data-chunk-id={chunk.chunk_id}
-      className={`rounded-md border bg-muted/30 p-3 text-sm transition-colors ${
-        highlighted
-          ? "border-primary/70 ring-2 ring-primary/30 shadow-[0_0_28px_-8px] shadow-primary/50"
-          : "border-border/60 hover:border-border"
+      className={`border-t border-border/70 py-3 transition-colors ${
+        highlighted ? "border-l-2 border-l-destructive pl-3" : "border-l-2 border-l-transparent"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{chunk.doc_title}</span>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-[13px] font-medium">{chunk.doc_title}</span>
         <span className="font-mono text-[11px] text-muted-foreground">
           {chunk.chunk_id}
         </span>
-        {typeof chunk.rrf_score === "number" && (
-          <Badge variant="outline" className="ml-auto font-mono text-[10px]">
-            rrf {chunk.rrf_score.toFixed(4)}
-          </Badge>
-        )}
-        {typeof chunk.bm25_rank === "number" && (
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            bm25 #{chunk.bm25_rank + 1}
-          </Badge>
-        )}
-        {typeof chunk.vector_rank === "number" && (
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            vec #{chunk.vector_rank + 1}
-          </Badge>
-        )}
+        <span className="ml-auto flex items-baseline gap-3 font-mono text-[11px] text-muted-foreground">
+          {typeof chunk.rrf_score === "number" && (
+            <span>rrf {chunk.rrf_score.toFixed(4)}</span>
+          )}
+          {typeof chunk.bm25_rank === "number" && (
+            <span>bm25 #{chunk.bm25_rank + 1}</span>
+          )}
+          {typeof chunk.vector_rank === "number" && (
+            <span>vec #{chunk.vector_rank + 1}</span>
+          )}
+        </span>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{shown}</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
+        {shown}
+      </p>
       {long && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          className="mt-1 text-[11px] text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground"
         >
           {expanded ? "Show less" : `Show more (${text.length} chars)`}
         </button>

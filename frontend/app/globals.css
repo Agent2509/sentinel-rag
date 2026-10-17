@@ -7,15 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-instrument-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
-  --font-display: var(--font-instrument);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
+  --font-heading: var(--font-instrument-sans);
+  --font-display: var(--font-newsreader);
+  --font-serif: var(--font-newsreader);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -42,173 +38,79 @@
 }
 
 :root {
-  --background: oklch(0.995 0.004 162);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0 / 72%);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0 / 98%);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.53 0.13 150.6);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0.008 162);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.965 0.008 162);
-  --muted-foreground: oklch(0.5 0.01 162);
-  --accent: oklch(0.95 0.014 162);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --background: #f4f4f0;
+  --foreground: #171717;
+  --card: transparent;
+  --card-foreground: #171717;
+  --popover: #f4f4f0;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #f4f4f0;
+  --secondary: #e9e9e3;
+  --secondary-foreground: #171717;
+  --muted: #e9e9e3;
+  --muted-foreground: #5d605a;
+  --accent: #e9e9e3;
+  --accent-foreground: #171717;
+  --destructive: #a33a2b;
+  --border: rgb(23 23 23 / 0.16);
+  --input: rgb(23 23 23 / 0.26);
+  --ring: #a33a2b;
+  --radius: 0.125rem;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0.018 162 / 55%);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.19 0.015 162 / 98%);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.76 0.16 162);
-  --primary-foreground: oklch(0.17 0.03 163);
-  --secondary: oklch(0.269 0.012 162);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0.012 162);
-  --muted-foreground: oklch(0.72 0.012 162);
-  --accent: oklch(0.28 0.016 162);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --background: #151514;
+  --foreground: #e8e6df;
+  --card: transparent;
+  --card-foreground: #e8e6df;
+  --popover: #1c1c1a;
+  --popover-foreground: #e8e6df;
+  --primary: #e8e6df;
+  --primary-foreground: #151514;
+  --secondary: #242420;
+  --secondary-foreground: #e8e6df;
+  --muted: #242420;
+  --muted-foreground: #a5a79f;
+  --accent: #242420;
+  --accent-foreground: #e8e6df;
+  --destructive: #d2604e;
+  --border: rgb(232 230 223 / 0.18);
+  --input: rgb(232 230 223 / 0.28);
+  --ring: #d2604e;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  /* Background lives on <html>: <body> stays transparent so the fixed aurora
-     layer (z -10) shows through and the glass cards above it have something to
-     refract. */
   html {
-    @apply font-sans bg-background;
+    @apply bg-background font-sans;
   }
   body {
     @apply text-foreground;
   }
-
-  /* Frosted glass on every Card, so call sites keep using plain <Card>. */
-  [data-slot="card"] {
-    -webkit-backdrop-filter: blur(14px) saturate(1.3);
-    backdrop-filter: blur(14px) saturate(1.3);
-  }
-  /* a card inside a card: no second blur (mud + wasted GPU) */
-  [data-slot="card"] [data-slot="card"] {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .dark [data-slot="card"] {
-    /* top edge highlight + faint sheen: "lit glass" even when no aurora
-       bloom sits behind the card */
-    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 8%);
-    background-image: linear-gradient(
-      180deg,
-      oklch(1 0 0 / 4%),
-      transparent 35%
-    );
+  ::selection {
+    background: color-mix(in oklab, var(--destructive) 18%, transparent);
   }
 }
 
-/* Aurora backdrop: three soft blooms behind all content. Pure decoration. */
-.aurora {
-  position: fixed;
-  inset: 0;
-  z-index: -10;
-  overflow: hidden;
-  pointer-events: none;
-  opacity: 0.5;
-}
-.dark .aurora {
-  opacity: 1;
-}
-.aurora::before,
-.aurora::after,
-.aurora > span {
-  content: "";
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(90px);
-}
-.aurora::before {
-  width: 70rem;
-  height: 42rem;
-  top: -22rem;
-  left: 50%;
-  margin-left: -35rem;
-  background: radial-gradient(
-    closest-side,
-    oklch(0.76 0.16 162 / 30%),
-    transparent
-  );
-  animation: aurora-drift-a 75s ease-in-out infinite alternate;
-}
-.aurora::after {
-  width: 52rem;
-  height: 36rem;
-  top: -12rem;
-  right: -14rem;
-  background: radial-gradient(
-    closest-side,
-    oklch(0.62 0.13 215 / 22%),
-    transparent
-  );
-  animation: aurora-drift-b 95s ease-in-out infinite alternate;
-}
-.aurora > span {
-  width: 46rem;
-  height: 34rem;
-  top: -6rem;
-  left: -16rem;
-  background: radial-gradient(
-    closest-side,
-    oklch(0.62 0.15 300 / 16%),
-    transparent
-  );
-  animation: aurora-drift-b 110s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes aurora-drift-a {
+/* The one motion: the timing strip draws in on load. */
+@keyframes trace-draw {
   from {
-    transform: translate3d(-6%, 0, 0) scale(1);
+    transform: scaleX(0);
   }
   to {
-    transform: translate3d(6%, 4%, 0) scale(1.15);
+    transform: scaleX(1);
   }
 }
-@keyframes aurora-drift-b {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(-7%, 5%, 0) scale(1.12);
-  }
+.trace-segment {
+  transform-origin: left;
+  animation: trace-draw 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .aurora::before,
-  .aurora::after,
-  .aurora > span {
+  .trace-segment {
     animation: none;
   }
 }

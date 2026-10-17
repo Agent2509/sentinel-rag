@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeftRight, Loader2, Play, Square } from "lucide-react";
+import { ArrowLeftRight, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -29,7 +27,7 @@ interface PanelState {
   error: string | null;
 }
 
-export default function StrategyLab() {
+export default function ComparePage() {
   const [query, setQuery] = useState("");
   const [left, setLeft] = useState<Strategy>("fixed");
   const [right, setRight] = useState<Strategy>("semantic");
@@ -60,23 +58,29 @@ export default function StrategyLab() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-10">
       <PageHeader
         title="Compare"
-        description="Run one query through two chunking strategies side by side."
+        description="Run one question through two chunking strategies and read the same measures side by side."
       />
 
-      <Card className="mb-6">
-        <CardContent className="flex flex-col gap-3 pt-6">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              aria-label="Query"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              maxLength={2000}
-              placeholder="Ask something about your documents…"
-              className="h-10 flex-1 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+      <form
+        className="border-y border-border py-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!running && query.trim()) runBoth();
+        }}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            aria-label="Query"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            maxLength={2000}
+            placeholder="Ask something about your documents…"
+            className="h-10 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted-foreground/70"
+          />
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="secondary"
@@ -88,7 +92,11 @@ export default function StrategyLab() {
             >
               <ArrowLeftRight className="h-4 w-4" />
             </Button>
-            <Button onClick={runBoth} disabled={running || !query.trim()}>
+            <Button
+              type="submit"
+              disabled={running || !query.trim()}
+              className="disabled:bg-transparent disabled:text-muted-foreground disabled:opacity-100 disabled:ring-1 disabled:ring-border"
+            >
               {running ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -97,8 +105,8 @@ export default function StrategyLab() {
               Compare
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </form>
 
       {(leftStream.final || rightStream.final) && (
         <DeltaStrip
@@ -107,7 +115,7 @@ export default function StrategyLab() {
         />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid gap-10 lg:grid-cols-2">
         <Panel
           title="A"
           value={left}
@@ -139,13 +147,13 @@ export default function StrategyLab() {
           }}
           onCancel={rightStream.cancel}
           disabled={running}
+          className="lg:border-l lg:border-border lg:pl-10"
         />
       </div>
     </div>
   );
 }
 
-/** What the page exists for: the comparison that was never on screen. */
 function DeltaStrip({
   a,
   b,
@@ -165,60 +173,60 @@ function DeltaStrip({
       : null;
 
   return (
-    <Card className="mb-6">
-      <CardContent className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-x-4 gap-y-2 pt-4 text-sm">
-        <span className="text-xs text-muted-foreground">compare</span>
+    <div className="border-b border-border py-4">
+      <div className="grid grid-cols-[6rem_1fr_1fr] items-baseline gap-x-6 gap-y-2 text-[13px]">
+        <span className="font-serif text-xs italic text-muted-foreground">
+          compare
+        </span>
         {entries.map((e) => (
-          <span key={e.key} className="font-mono text-xs text-muted-foreground">
-            {e.key} · {e.label}
+          <span key={e.key} className="text-[12px] text-muted-foreground">
+            {e.key} — {e.label}
           </span>
         ))}
 
-        <span className="text-xs text-muted-foreground">Latency</span>
+        <span className="text-[11px] text-muted-foreground">Latency</span>
         {entries.map((e) => (
-          <span key={e.key} className="flex items-center gap-1.5 font-mono">
-            <span
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full ${
-                fastest === e.key ? "bg-emerald-400" : "bg-transparent"
-              }`}
-            />
-            {e.trace ? `${e.trace.total_latency_ms} ms` : "—"}
+          <span key={e.key} className="flex items-baseline gap-2">
+            {fastest === e.key && (
+              <span aria-hidden className="h-1.5 w-1.5 bg-foreground" />
+            )}
+            <span className="font-mono text-[12px]">
+              {e.trace ? `${e.trace.total_latency_ms} ms` : "—"}
+            </span>
             {fastest === e.key && <span className="sr-only">fastest</span>}
           </span>
         ))}
 
-        <span className="text-xs text-muted-foreground">Retries</span>
+        <span className="text-[11px] text-muted-foreground">Retries</span>
         {entries.map((e) => (
-          <span key={e.key} className="font-mono">
-            {e.trace ? `r${e.trace.retries}` : "—"}
+          <span key={e.key} className="font-mono text-[12px]">
+            {e.trace ? e.trace.retries : "—"}
           </span>
         ))}
 
-        <span className="text-xs text-muted-foreground">Status</span>
+        <span className="text-[11px] text-muted-foreground">Status</span>
         {entries.map((e) =>
           e.trace ? (
-            <Badge
+            <span
               key={e.key}
-              variant={
+              className={`text-[12px] ${
                 e.trace.final_status === "success"
-                  ? "default"
+                  ? "text-foreground"
                   : e.trace.final_status === "not_found"
-                    ? "secondary"
-                    : "destructive"
-              }
-              className="w-fit"
+                    ? "text-[#8a6a2f] dark:text-[#d9a441]"
+                    : "text-destructive"
+              }`}
             >
               {e.trace.final_status}
-            </Badge>
+            </span>
           ) : (
-            <span key={e.key} className="text-xs text-muted-foreground">
+            <span key={e.key} className="text-[12px] text-muted-foreground">
               running…
             </span>
           ),
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -231,6 +239,7 @@ function Panel({
   onCorrection,
   onCancel,
   disabled,
+  className = "",
 }: {
   title: string;
   value: Strategy;
@@ -240,90 +249,79 @@ function Panel({
   onCorrection: (c: boolean) => void;
   onCancel: () => void;
   disabled: boolean;
+  className?: string;
 }) {
   const generation = state.steps.find((s) => s.action === "generation");
   const retrieval = state.steps.findLast((s) => s.action === "retrieval");
   const chunks = (retrieval?.chunks ?? state.final?.closest_chunks ?? []).slice(0, 3);
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="grid-cols-[1fr_auto] items-center gap-2">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          {/* A/B tint without plumbing a prop: emerald vs teal, same dot in the delta strip */}
-          <span
-            aria-hidden
-            className={`h-2 w-2 shrink-0 rounded-full ${
-              title === "A" ? "bg-emerald-400" : "bg-cyan-400"
-            }`}
-          />
-          <span className="text-muted-foreground">{title}</span>{" "}
-          <Select
-            value={value}
-            onValueChange={(v) => onChange(v as Strategy)}
-            disabled={disabled}
-          >
-            <SelectTrigger className="h-8 w-[140px]" aria-label={`Strategy ${title}`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {STRATEGIES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardTitle>
-        <div className="flex items-center gap-2">
+    <section className={`min-w-0 ${className}`}>
+      <div className="flex flex-wrap items-baseline gap-3 border-t border-border pt-4">
+        <span className="text-[13px] font-medium">{title}</span>
+        <Select
+          value={value}
+          onValueChange={(v) => onChange(v as Strategy)}
+          disabled={disabled}
+        >
+          <SelectTrigger className="h-7 w-[130px] border-0 px-2" aria-label={`Strategy ${title}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STRATEGIES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <span className="ml-auto flex items-baseline gap-3 text-[11px] text-muted-foreground">
           {state.running && (
-            <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-              <Square className="h-3.5 w-3.5" /> Cancel
-            </Button>
+            <button type="button" onClick={onCancel} className="text-[11px] underline underline-offset-2">
+              cancel
+            </button>
           )}
           {state.final && (
-            <div className="flex items-center gap-2 text-xs">
-              <Badge
-                variant={
+            <>
+              <span
+                className={
                   state.final.final_status === "success"
-                    ? "default"
+                    ? "text-foreground"
                     : state.final.final_status === "not_found"
-                      ? "secondary"
-                      : "destructive"
+                      ? "text-[#8a6a2f] dark:text-[#d9a441]"
+                      : "text-destructive"
                 }
               >
                 {state.final.final_status}
-              </Badge>
-              <span className="font-mono text-muted-foreground">
-                {state.final.total_latency_ms}ms · r{state.final.retries}
               </span>
-            </div>
+              <span className="font-mono">{state.final.total_latency_ms} ms</span>
+              <span className="font-mono">r{state.final.retries}</span>
+            </>
           )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm" aria-live="polite">
-        <div className="flex items-center gap-2">
-          <Switch
-            id={`correction-${title}`}
-            checked={correction}
-            onCheckedChange={onCorrection}
-            disabled={disabled}
-          />
-          <Label
-            htmlFor={`correction-${title}`}
-            className="text-xs text-muted-foreground"
-          >
-            Self-correction (HyDE)
-          </Label>
-        </div>
-        {state.error && (
-          <p role="alert" className="text-destructive">
-            {state.error}
-          </p>
-        )}
+        </span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3">
+        <Switch
+          id={`correction-${title}`}
+          checked={correction}
+          onCheckedChange={onCorrection}
+          disabled={disabled}
+        />
+        <Label
+          htmlFor={`correction-${title}`}
+          className="text-[12px] text-muted-foreground"
+        >
+          Self-correction (HyDE)
+        </Label>
+      </div>
+
+      <div className="mt-3 space-y-3 text-[13px]" aria-live="polite">
+        {state.error && <p className="text-destructive">{state.error}</p>}
         {!state.running && !state.final && state.steps.length === 0 && (
-          <p className="text-muted-foreground">
-            Pick a chunking strategy above and hit Compare to see both pipelines
-            run on the same query.
+          <p className="font-serif text-[15px] italic leading-relaxed text-muted-foreground">
+            Pick a chunking strategy and run the comparison.
           </p>
         )}
         {state.running && (
@@ -351,16 +349,16 @@ function Panel({
           </div>
         )}
         {chunks.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
-              Retrieved chunks
+          <div>
+            <p className="font-serif text-xs italic text-muted-foreground">
+              Retrieved passages
             </p>
             {chunks.map((c) => (
               <ChunkCard key={c.chunk_id} chunk={c} compact />
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

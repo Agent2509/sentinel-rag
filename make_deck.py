@@ -239,7 +239,7 @@ tech_rows = [
     ["Vector Search", "FAISS (IndexFlatIP)", "Dense semantic nearest-neighbor search", "Exact cosine search on unit vectors; zero external service overhead."],
     ["Lexical Search", "rank_bm25 (BM25Okapi)", "Exact keyword & term frequency matching", "Catches acronyms, model names, and symbols vectors miss."],
     ["API Server", "FastAPI + Uvicorn", "Async Server-Sent Events (SSE) gateway", "High throughput async generator yields step-by-step telemetry."],
-    ["Frontend UI", "Next.js 15 + Tailwind + Radix", "Reactive dark-mode visualization lab", "Turbopack performance, accessible step animations, SSE fetch reader."],
+    ["Frontend UI", "Next.js 16 + Tailwind + Radix", "Lab-ledger visualization, light and dark", "App Router, accessible timing strip, SSE fetch reader."],
     ["LLM Engine", "Groq Cloud API (Llama/GPT-OSS)", "Router, Grader, HyDE, and Generation", "Sub-second inference allows multi-turn self-correction in <2s total."],
     ["Persistence", "SQLite 3 (PRAGMA WAL)", "Trace storage", "Zero config; WAL mode permits concurrent SSE writes and UI reads."],
 ]

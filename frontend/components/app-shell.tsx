@@ -3,30 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  FileText,
-  GitCompareArrows,
-  History,
-  MessageSquareText,
-  ShieldCheck,
-} from "lucide-react";
 import { DarkModeToggle } from "@/components/dark-mode-toggle";
 import { getHealth, getTraces } from "@/lib/api";
 import type { Health, TraceSummary } from "@/lib/types";
 
 const WORKSPACES = [
-  { href: "/", label: "Ask", icon: MessageSquareText },
-  { href: "/strategy", label: "Compare", icon: GitCompareArrows },
+  { href: "/", label: "Ask" },
+  { href: "/strategy", label: "Compare" },
 ] as const;
 
-const STATUS_DOT: Record<string, string> = {
-  success: "bg-emerald-400",
-  not_found: "bg-amber-400",
-  error: "bg-red-400",
+const STATUS: Record<string, string> = {
+  success: "bg-foreground",
+  not_found: "bg-[#8a6a2f] dark:bg-[#d9a441]",
+  error: "bg-destructive",
   cancelled: "bg-muted-foreground",
 };
 
-function time(iso: string) {
+function clock(iso: string) {
   return new Date(iso).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -89,69 +82,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const healthy = !down && !!health && health.status === "ok" && health.indexes_ok;
-  const dot = down ? "bg-red-500" : healthy ? "bg-emerald-500" : "bg-amber-500";
   const docs = health?.corpus_size ?? null;
-  // A trace is "open" only while the Ask page is showing it.
   const currentTrace = pathname === "/" ? activeTrace : null;
 
-  const workspaceLinks = (compact = false) =>
-    WORKSPACES.map((item) => {
-      const active = pathname === item.href;
-      const Icon = item.icon;
-      return (
-        <Link
-          key={item.href}
-          href={item.href}
-          aria-current={active ? "page" : undefined}
-          className={
-            compact
-              ? `shrink-0 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
-                  active
-                    ? "bg-primary/10 text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`
-              : `flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                  active
-                    ? "bg-primary/10 text-foreground"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                }`
-          }
-        >
-          {!compact && <Icon className="h-4 w-4" aria-hidden />}
-          {item.label}
-        </Link>
-      );
-    });
+  const linkClass = (active: boolean) =>
+    `block border-l-2 py-1.5 pl-3 text-sm transition-colors ${
+      active
+        ? "border-l-foreground text-foreground"
+        : "border-l-transparent text-muted-foreground hover:text-foreground"
+    }`;
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col gap-6 border-r border-border/60 bg-background/40 px-3 py-5 backdrop-blur-xl lg:flex">
-        <Link href="/" className="flex items-center gap-2 px-2">
-          <ShieldCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-          <span className="font-display text-lg tracking-tight">Sentinel RAG</span>
+    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-screen flex-col border-r border-border bg-background px-4 py-6 lg:flex">
+        <Link href="/" className="flex items-baseline gap-2 px-1">
+          <span aria-hidden className="mb-[3px] h-2 w-2 bg-destructive" />
+          <span className="font-display text-xl leading-none tracking-tight">
+            Sentinel RAG
+          </span>
         </Link>
 
-        <nav className="space-y-1" aria-label="Main">
-          <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+        <nav className="mt-8 space-y-0.5" aria-label="Main">
+          <p className="mb-2 px-1 font-serif text-xs italic text-muted-foreground">
             Workspace
           </p>
-          {workspaceLinks()}
+          {WORKSPACES.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={pathname === item.href ? "page" : undefined}
+              className={linkClass(pathname === item.href)}
+            >
+              {item.label}
+            </Link>
+          ))}
           <Link
             href="/documents"
             aria-current={pathname === "/documents" ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors ${
-              pathname === "/documents"
-                ? "bg-primary/10 text-foreground"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-            }`}
+            className={`${linkClass(pathname === "/documents")} flex items-center`}
           >
-            <FileText className="h-4 w-4" aria-hidden />
             Documents
             <span
-              className={`ml-auto rounded-full px-1.5 py-0.5 font-mono text-[10px] ${
-                docs === 0
-                  ? "bg-amber-500/15 text-amber-500"
-                  : "bg-secondary text-muted-foreground"
+              className={`ml-auto font-mono text-[11px] ${
+                docs === 0 ? "text-destructive" : "text-muted-foreground"
               }`}
             >
               {docs ?? "—"}
@@ -159,17 +132,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         </nav>
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          <p className="flex items-center gap-1.5 px-2 pb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
-            <History className="h-3 w-3" aria-hidden /> Recent
+        <div className="mt-8 flex min-h-0 flex-1 flex-col">
+          <p className="mb-2 px-1 font-serif text-xs italic text-muted-foreground">
+            Recent
           </p>
-          <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 [scrollbar-width:thin]">
+          <div className="-mx-4 min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
             {traces === null && (
-              <p className="px-2 py-1 text-xs text-muted-foreground">loading…</p>
+              <p className="px-4 py-1 text-xs text-muted-foreground">loading…</p>
             )}
             {traces?.length === 0 && (
-              <p className="px-2 py-1 text-xs text-muted-foreground">
-                Ask a question to start a trace.
+              <p className="px-4 py-1 text-xs text-muted-foreground">
+                A question starts a trace.
               </p>
             )}
             {traces?.map((t) => (
@@ -178,35 +151,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={`/?trace=${t.id}`}
                 onClick={() => setActiveTrace(t.id)}
                 aria-current={currentTrace === t.id ? "true" : undefined}
-                className={`block rounded-md border-l-2 px-2 py-1.5 transition-colors hover:bg-muted/60 ${
-                  currentTrace === t.id
-                    ? "border-l-primary bg-muted/70"
-                    : "border-l-transparent"
+                className={`block border-b border-border/60 px-4 py-2 transition-colors last:border-0 ${
+                  currentTrace === t.id ? "bg-secondary" : "hover:bg-secondary/60"
                 }`}
               >
                 <span className="flex items-center gap-2">
                   <span
                     aria-hidden
-                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[t.final_status] ?? "bg-muted-foreground"}`}
+                    className={`h-1.5 w-1.5 shrink-0 ${STATUS[t.final_status] ?? "bg-muted-foreground"}`}
                   />
-                  <span className="min-w-0 flex-1 truncate text-xs">{t.query}</span>
+                  <span className="min-w-0 flex-1 truncate text-xs leading-snug">
+                    {t.query}
+                  </span>
                 </span>
-                <span className="mt-0.5 flex items-center gap-2 pl-3.5 text-[10px] text-muted-foreground">
+                <span className="mt-1 flex items-center gap-3 pl-3.5 text-[11px] text-muted-foreground">
                   <span>{t.strategy}</span>
                   <span className="font-mono">{t.latency_ms} ms</span>
-                  <span className="ml-auto font-mono">{time(t.timestamp)}</span>
+                  <span className="ml-auto font-mono">{clock(t.timestamp)}</span>
                 </span>
               </Link>
             ))}
           </div>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-border/60 px-1 pt-4">
+        <div className="flex items-center justify-between border-t border-border pt-4">
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span aria-hidden className={`h-2 w-2 rounded-full ${dot}`} />
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 ${
+                down ? "bg-destructive" : healthy ? "bg-foreground" : "bg-[#8a6a2f]"
+              }`}
+            />
             {down ? "backend down" : healthy ? "ok" : "degraded"}
             {docs !== null && (
-              <span className="font-mono text-[10px] text-muted-foreground/70">
+              <span className="font-mono text-[11px]">
                 · {docs} doc{docs === 1 ? "" : "s"}
               </span>
             )}
@@ -216,23 +194,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/70 backdrop-blur-xl lg:hidden">
-          <div className="flex h-14 items-center gap-3 px-4">
-            <Link href="/" className="flex shrink-0 items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-              <span className="hidden font-display text-lg tracking-tight sm:inline">
-                Sentinel RAG
+        <header className="sticky top-0 z-20 border-b border-border bg-background lg:hidden">
+          <div className="flex h-14 items-center gap-4 px-4">
+            <Link href="/" className="flex shrink-0 items-baseline gap-2">
+              <span aria-hidden className="mb-[2px] h-2 w-2 bg-destructive" />
+              <span className="font-display text-lg leading-none tracking-tight">
+                Sentinel
               </span>
             </Link>
-            <nav className="ml-1 flex items-center gap-1 overflow-x-auto [scrollbar-width:none]">
-              {workspaceLinks(true)}
+            <nav className="ml-1 flex items-center gap-4 overflow-x-auto [scrollbar-width:none]">
+              {WORKSPACES.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                  className={`shrink-0 py-1 text-sm ${
+                    pathname === item.href
+                      ? "text-foreground"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <Link
                 href="/documents"
-                aria-current={pathname === "/documents" ? "page" : undefined}
-                className={`shrink-0 rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+                className={`shrink-0 py-1 text-sm ${
                   pathname === "/documents"
-                    ? "bg-primary/10 text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
                 }`}
               >
                 Documents
@@ -240,7 +230,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
             <span
               aria-hidden
-              className={`ml-auto h-2 w-2 shrink-0 rounded-full ${dot}`}
+              className={`ml-auto h-1.5 w-1.5 shrink-0 ${
+                down ? "bg-destructive" : healthy ? "bg-foreground" : "bg-[#8a6a2f]"
+              }`}
             />
           </div>
         </header>
