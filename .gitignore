@@ -9,6 +9,9 @@ node_modules/
 .venv-eval/
 .commandcode/
 
+# local corpus: seed with scripts/gen_corpus.py or upload your own files
+backend/data/corpus/
+
 # generated deliverables (rebuild: make_deck.py, build_plain_english_guide.py)
 *.pptx
 Sentinel_RAG.pdf

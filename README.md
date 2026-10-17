@@ -33,7 +33,8 @@ uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/bin/python -r requirements.txt
 cp .env.example .env          # add GROQ_API_KEY — the free tier is enough for a demo
-python -m app.ingest          # build the indexes (the 50-doc corpus ships in the repo)
+python scripts/gen_corpus.py  # optional: seed the 50-doc demo corpus (or drop your own .md files in data/corpus/)
+python -m app.ingest          # build the indexes for whatever is in data/corpus/
 uvicorn app.main:app --port 8000
 ```
 
@@ -70,6 +71,7 @@ The backend suite runs deterministic self-checks (`scripts/check_*.py`) with stu
 ### Evaluation (separate `.venv-eval`)
 
 ```bash
+python scripts/gen_corpus.py                               # seed the corpus the testset was built on
 uv venv .venv-eval --python 3.12
 uv pip install --python .venv-eval/bin/python torch --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
@@ -117,7 +119,7 @@ A router labels the query simple or complex to pick a retrieval depth. The retri
 
 ## Results
 
-Full matrix: **6 of 6 combos**, `n = 10` questions per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge (the `gpt-oss-120b` free-tier quota was exhausted during the first runs).
+Full matrix on the 50-doc demo corpus: **6 of 6 combos**, `n = 10` questions per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge (the `gpt-oss-120b` free-tier quota was exhausted during the first runs).
 
 | Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
 |---|---|---|---|---|---|---|

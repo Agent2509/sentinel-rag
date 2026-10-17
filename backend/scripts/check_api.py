@@ -18,9 +18,15 @@ from app import config
 
 _tmp = Path(tempfile.mkdtemp())
 config.DB_PATH = _tmp / "sentinel_test.db"
-# Throwaway indexes built from the committed corpus: this check must pass on a
-# fresh clone, where data/index/ is gitignored, without loading the real model.
 config.INDEX_DIR = _tmp / "index"
+# Self-contained corpus + indexes: the check must pass on a fresh clone with no
+# local documents and without loading the real model.
+config.CORPUS_DIR = _tmp / "corpus"
+config.CORPUS_DIR.mkdir()
+for _i in range(3):
+    (config.CORPUS_DIR / f"doc{_i}.md").write_text(
+        f"# Document {_i}\n\nSeed text for the API check, topic {_i}. " * 6
+    )
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -77,7 +83,7 @@ def main_check() -> None:
         print("strategies       OK")
 
         c = client.get("/api/corpus")
-        assert c.status_code == 200 and len(c.json()) == 50
+        assert c.status_code == 200 and len(c.json()) == 3
         print("corpus           OK  docs=", len(c.json()))
 
         e = client.get("/api/eval")
