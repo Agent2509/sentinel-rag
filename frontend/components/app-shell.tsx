@@ -38,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [health, setHealth] = useState<Health | null>(null);
   const [down, setDown] = useState(false);
   const [traces, setTraces] = useState<TraceSummary[] | null>(null);
+  const [activeTrace, setActiveTrace] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -73,18 +74,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         .catch(() => {});
     load();
     const refresh = () => load();
+    const onActive = (e: Event) => {
+      setActiveTrace((e as CustomEvent<string | null>).detail ?? null);
+    };
     window.addEventListener("sentinel:trace", refresh);
+    window.addEventListener("sentinel:active-trace", onActive);
     const id = setInterval(refresh, 30000);
     return () => {
       active = false;
       clearInterval(id);
       window.removeEventListener("sentinel:trace", refresh);
+      window.removeEventListener("sentinel:active-trace", onActive);
     };
   }, [pathname]);
 
   const healthy = !down && !!health && health.status === "ok" && health.indexes_ok;
   const dot = down ? "bg-red-500" : healthy ? "bg-emerald-500" : "bg-amber-500";
   const docs = health?.corpus_size ?? null;
+  // A trace is "open" only while the Ask page is showing it.
+  const currentTrace = pathname === "/" ? activeTrace : null;
 
   const workspaceLinks = (compact = false) =>
     WORKSPACES.map((item) => {
@@ -168,7 +176,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={t.id}
                 href={`/?trace=${t.id}`}
-                className="block rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60"
+                onClick={() => setActiveTrace(t.id)}
+                aria-current={currentTrace === t.id ? "true" : undefined}
+                className={`block rounded-md border-l-2 px-2 py-1.5 transition-colors hover:bg-muted/60 ${
+                  currentTrace === t.id
+                    ? "border-l-primary bg-muted/70"
+                    : "border-l-transparent"
+                }`}
               >
                 <span className="flex items-center gap-2">
                   <span

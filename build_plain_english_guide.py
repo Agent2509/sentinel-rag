@@ -434,7 +434,7 @@ html_content = f"""<!DOCTYPE html>
 
 <div class="figure">
   <img src="{img_strategy}" alt="Compare">
-  <div class="caption">Figure 3: Compare comparing Fixed Window vs Hierarchical chunking side by side.</div>
+  <div class="caption">Figure 3: Compare, showing Fixed Window vs Hierarchical chunking side by side.</div>
 </div>
 
 <!-- CHAPTER 6 -->

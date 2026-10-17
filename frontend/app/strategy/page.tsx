@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Play, Square } from "lucide-react";
+import { ArrowLeftRight, Loader2, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,15 @@ export default function StrategyLab() {
     ]);
   }
 
+  function swap() {
+    setLeft(right);
+    setRight(left);
+    setLeftCorrection(rightCorrection);
+    setRightCorrection(leftCorrection);
+    leftStream.reset();
+    rightStream.reset();
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <PageHeader
@@ -68,6 +77,17 @@ export default function StrategyLab() {
               placeholder="Ask something about your documents…"
               className="h-10 flex-1 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={swap}
+              disabled={running}
+              aria-label="Swap A and B"
+              title="Swap A and B"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+            </Button>
             <Button onClick={runBoth} disabled={running || !query.trim()}>
               {running ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -79,6 +99,13 @@ export default function StrategyLab() {
           </div>
         </CardContent>
       </Card>
+
+      {(leftStream.final || rightStream.final) && (
+        <DeltaStrip
+          a={{ label: left, trace: leftStream.final }}
+          b={{ label: right, trace: rightStream.final }}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel
@@ -114,13 +141,6 @@ export default function StrategyLab() {
           disabled={running}
         />
       </div>
-
-      {leftStream.final && rightStream.final && (
-        <DeltaStrip
-          a={{ label: left, trace: leftStream.final }}
-          b={{ label: right, trace: rightStream.final }}
-        />
-      )}
     </div>
   );
 }
@@ -130,18 +150,22 @@ function DeltaStrip({
   a,
   b,
 }: {
-  a: { label: string; trace: Trace };
-  b: { label: string; trace: Trace };
+  a: { label: string; trace: Trace | null };
+  b: { label: string; trace: Trace | null };
 }) {
   const entries = [
     { key: "A", label: a.label, trace: a.trace },
     { key: "B", label: b.label, trace: b.trace },
   ];
   const fastest =
-    a.trace.total_latency_ms <= b.trace.total_latency_ms ? "A" : "B";
+    a.trace && b.trace
+      ? a.trace.total_latency_ms <= b.trace.total_latency_ms
+        ? "A"
+        : "B"
+      : null;
 
   return (
-    <Card className="mt-6">
+    <Card className="mb-6">
       <CardContent className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-x-4 gap-y-2 pt-4 text-sm">
         <span className="text-xs text-muted-foreground">compare</span>
         {entries.map((e) => (
@@ -159,7 +183,7 @@ function DeltaStrip({
                 fastest === e.key ? "bg-emerald-400" : "bg-transparent"
               }`}
             />
-            {e.trace.total_latency_ms} ms
+            {e.trace ? `${e.trace.total_latency_ms} ms` : "—"}
             {fastest === e.key && <span className="sr-only">fastest</span>}
           </span>
         ))}
@@ -167,26 +191,32 @@ function DeltaStrip({
         <span className="text-xs text-muted-foreground">Retries</span>
         {entries.map((e) => (
           <span key={e.key} className="font-mono">
-            r{e.trace.retries}
+            {e.trace ? `r${e.trace.retries}` : "—"}
           </span>
         ))}
 
         <span className="text-xs text-muted-foreground">Status</span>
-        {entries.map((e) => (
-          <Badge
-            key={e.key}
-            variant={
-              e.trace.final_status === "success"
-                ? "default"
-                : e.trace.final_status === "not_found"
-                  ? "secondary"
-                  : "destructive"
-            }
-            className="w-fit"
-          >
-            {e.trace.final_status}
-          </Badge>
-        ))}
+        {entries.map((e) =>
+          e.trace ? (
+            <Badge
+              key={e.key}
+              variant={
+                e.trace.final_status === "success"
+                  ? "default"
+                  : e.trace.final_status === "not_found"
+                    ? "secondary"
+                    : "destructive"
+              }
+              className="w-fit"
+            >
+              {e.trace.final_status}
+            </Badge>
+          ) : (
+            <span key={e.key} className="text-xs text-muted-foreground">
+              running…
+            </span>
+          ),
+        )}
       </CardContent>
     </Card>
   );
@@ -302,9 +332,6 @@ function Panel({
             {state.steps.at(-1)?.action ?? "starting"}…
           </p>
         )}
-        {chunks.map((c) => (
-          <ChunkCard key={c.chunk_id} chunk={c} />
-        ))}
         {generation?.answer && (
           <AnswerPanel answer={generation.answer} citations={generation.citations} />
         )}
@@ -321,6 +348,16 @@ function Panel({
                 {fallbackLabel(state.final.fallback_reason)}
               </p>
             )}
+          </div>
+        )}
+        {chunks.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/70">
+              Retrieved chunks
+            </p>
+            {chunks.map((c) => (
+              <ChunkCard key={c.chunk_id} chunk={c} compact />
+            ))}
           </div>
         )}
       </CardContent>

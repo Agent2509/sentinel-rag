@@ -5,18 +5,22 @@ import { Badge } from "@/components/ui/badge";
 import type { Chunk } from "@/lib/types";
 
 const SNIPPET = 320;
+const COMPACT_SNIPPET = 140;
 
 export function ChunkCard({
   chunk,
   highlighted = false,
+  compact = false,
 }: {
   chunk: Chunk;
   highlighted?: boolean;
+  compact?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const text = chunk.context || chunk.text || "";
-  const long = text.length > SNIPPET;
-  const shown = expanded || !long ? text : `${text.slice(0, SNIPPET)}…`;
+  const snippet = compact ? COMPACT_SNIPPET : SNIPPET;
+  const long = text.length > snippet;
+  const shown = expanded || !long ? text : `${text.slice(0, snippet)}…`;
 
   return (
     <div

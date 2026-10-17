@@ -62,7 +62,12 @@ function AskView() {
 
   // A sidebar history link arrives as /?trace=<id>: load it into the same panel.
   useEffect(() => {
-    if (!traceId) return;
+    if (!traceId) {
+      window.dispatchEvent(
+        new CustomEvent("sentinel:active-trace", { detail: null }),
+      );
+      return;
+    }
     let active = true;
     getTrace(traceId)
       .then((trace) => {
@@ -72,6 +77,9 @@ function AskView() {
         setStrategy(trace.strategy);
         setCorrection(trace.correction_enabled);
         setHighlight(null);
+        window.dispatchEvent(
+          new CustomEvent("sentinel:active-trace", { detail: traceId }),
+        );
       })
       .catch((e) => {
         if (active) setError((e as Error).message);
@@ -87,6 +95,7 @@ function AskView() {
 
   async function runQuery() {
     if (traceId) router.replace("/");
+    window.dispatchEvent(new CustomEvent("sentinel:active-trace", { detail: null }));
     try {
       await run({ query, strategy, correction_enabled: correction });
     } finally {

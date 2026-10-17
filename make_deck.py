@@ -455,7 +455,7 @@ notes(s, "The Demo Walkthrough:\n"
          "1. Query 1 demonstrates the fast path: Instant retrieval and citation.\n"
          "2. Query 2 demonstrates our flagship feature: Self-correction. The amber card will pulse on screen.\n"
          "3. Query 3 proves no hallucinations: The system gracefully admits it cannot answer out-of-domain financial data.\n"
-         "4. Query 4 demonstrates the Compare side-by-side comparison.")
+         "4. Query 4 demonstrates the side-by-side comparison on the Compare page.")
 
 # ==============================================================================
 # SLIDE 16: Engineering Reliability
