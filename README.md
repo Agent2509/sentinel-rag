@@ -1,14 +1,13 @@
 # Sentinel RAG
 
 [![CI](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml)
+[![MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg)](https://www.python.org/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
 
 > "Most RAG systems fail silently. Mine knows when it's failing, fixes itself, and shows you the receipts."
 
-A locally hosted, self-correcting RAG laboratory: 3 chunking strategies, a hybrid
-BM25 + FAISS retriever with RRF fusion, an agentic self-correction loop
-(Grader + HyDE), and RAGAS-evaluated metrics in a live web UI.
-
-See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full design.
+A locally hosted, self-correcting RAG laboratory. Ask a question and watch the answer get routed, retrieved, graded, rewritten with HyDE, and cited — with every step on screen. Three chunking strategies, a hybrid BM25 + FAISS retriever, and a RAGAS scoreboard.
 
 ## Screenshots
 
@@ -18,7 +17,82 @@ See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full design.
 |---|---|
 | ![Strategy Lab](docs/screenshots/ui-strategy-delta.png) | ![Trace View in light mode](docs/screenshots/ui-trace-light.png) |
 
-## Architecture
+## What it does
+
+- **Three chunkers, one corpus.** Fixed (512/50), hierarchical (256/1024), and semantic (percentile breakpoints) — switch per query and compare.
+- **Hybrid retrieval.** BM25 + FAISS fused with reciprocal rank fusion, so lexical and vector hits both count.
+- **Self-correction.** An LLM grader scores the retrieved passages; a low score triggers a HyDE rewrite and a re-retrieve, capped at 2 retries.
+- **Receipts.** Every step streams to the UI over SSE and is stored in SQLite, with citations that jump to the source chunk.
+- **Honest evaluation.** A RAGAS harness runs the strategy × correction matrix; the scoreboard reads the same numbers as this README.
+
+## Quickstart
+
+```bash
+cd backend
+uv venv .venv --python 3.12
+uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv/bin/python -r requirements.txt
+cp .env.example .env          # add GROQ_API_KEY — the free tier is enough for a demo
+python -m app.ingest          # build the indexes (the 50-doc corpus ships in the repo)
+uvicorn app.main:app --port 8000
+```
+
+```bash
+cd frontend
+pnpm install
+pnpm dev                      # http://localhost:3000
+```
+
+Ask **`What is LoRA?`** — the reliable success demo. The navbar health dot turns amber if the indexes are missing.
+
+<details>
+<summary>Full setup: CLI, tests, evaluation, generated docs</summary>
+
+### CLI
+
+```bash
+python -m app.pipeline "How does attention differ from RNN sequence processing?"
+python -m app.pipeline "What is LoRA?" --strategy fixed
+python -m app.pipeline "self correction retrieval" --no-correction
+python -m app.verify          # query every index, print top hits
+```
+
+### Tests
+
+```bash
+cd backend && python -m pytest tests/     # API, documents, retrieval, ingest, LLM JSON
+cd frontend && pnpm test                  # query-stream hook (Vitest)
+cd frontend && pnpm lint && pnpm build
+```
+
+The backend suite runs deterministic self-checks (`scripts/check_*.py`) with stubbed embeddings and temp indexes — no network, no model download. CI runs both suites on every push.
+
+### Evaluation (separate `.venv-eval`)
+
+```bash
+uv venv .venv-eval --python 3.12
+uv pip install --python .venv-eval/bin/python torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
+
+.venv-eval/bin/python -m eval.build_testset              # 50 Q/A rows -> eval/testset.jsonl
+.venv-eval/bin/python -m eval.run_ragas --smoke          # 1 combo, 5 questions
+.venv-eval/bin/python -m eval.run_ragas --limit 10       # first 10 rows per combo
+.venv-eval/bin/python -m eval.run_ragas --limit 0 --resume   # fill gaps across quota resets
+```
+
+The harness pools every `GROQ_API_KEY*` in the environment across separate Groq
+accounts (pipeline round-robin, one judge per account) and refuses to overwrite a
+good run when the LLM is rate-limited: it probes first, aborts on a high error
+rate, and keeps completed combos.
+
+### Generated deliverables (gitignored)
+
+- `make_deck.py` → `Sentinel_RAG.pptx` (17 slides)
+- `build_plain_english_guide.py` → `Sentinel_RAG_Comprehensive_Guide.{html,pdf}`
+
+</details>
+
+## How it works
 
 ```mermaid
 flowchart TD
@@ -39,111 +113,11 @@ flowchart TD
     G -->|ok| GEN["Generate answer + citations"]
 ```
 
-## Status
+A router labels the query simple or complex to pick a retrieval depth. The retriever fuses BM25 and vector hits, the grader judges whether the passages can answer the query, and a failure sends the query through a hypothetical-document rewrite before one more retrieval. The final answer must cite the passages it used; an answer that cites nothing is reported as `not_found` instead of being passed off as grounded. See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full design.
 
-- [x] **M1** Ingestion: 3 chunkers, FAISS + BM25 indexes, CLI verify
-- [x] **M2** Full pipeline from CLI (router, grader, HyDE, trace)
-- [x] **M3** FastAPI server (SSE, SQLite persistence, health)
-- [x] **M4** RAGAS evaluation (test set, eval matrix harness, results.json)
-- [x] **M5** Frontend (Trace View, Strategy Lab, Scoreboard)
-- [x] **M6** Polish (demo script, deck + guide generators, honest eval table)
-- [x] **M7** Document upload (upload/list/delete, live reindex)
+## Results
 
-## Run (backend)
-
-```bash
-cd backend
-uv venv .venv --python 3.12
-uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
-uv pip install --python .venv/bin/python -r requirements.txt
-
-python scripts/gen_corpus.py     # optional: regenerate the committed 50-doc corpus
-python -m app.ingest             # build FAISS + BM25 indexes
-python -m app.verify             # query every index, print top hits
-
-cp .env.example .env             # then add GROQ_API_KEY
-python -m app.pipeline "How does attention differ from RNN sequence processing?"
-python -m app.pipeline "What is LoRA?" --strategy fixed
-python -m app.pipeline "self correction retrieval" --no-correction
-python scripts/check_pipeline.py # deterministic control-flow self-check (no LLM)
-
-
-# API server (SSE = /api/query; also /api/health, /api/trace/{id}, /api/strategies,
-# /api/documents (upload/list/delete), /api/reindex, /api/corpus, /api/eval)
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-python scripts/check_api.py      # deterministic API self-check (no LLM)
-python scripts/check_eval.py     # deterministic eval-harness self-check (no LLM)
-python scripts/check_documents.py # deterministic upload/delete self-check (no LLM)
-python -m pytest tests/          # runs the check scripts + unit tests
-```
-
-### Frontend
-
-```bash
-cd frontend
-pnpm install
-pnpm dev            # http://localhost:3000  (backend must be on :8000)
-pnpm build          # typecheck + production build
-pnpm start          # serve the production build on :3000
-```
-
-- **Trace View** (`/`) — streams the pipeline over SSE (fetch-stream), animated step cards, answer + citations.
-- **Strategy Lab** (`/strategy`) — run one query on two strategies side by side.
-- **Documents** (`/documents`) — upload `.md`/`.txt`/`.pdf`; each upload re-embeds the corpus and rebuilds all three indexes live.
-- **Scoreboard** (`/scoreboard`) — RAGAS metrics per strategy from `GET /api/eval` (empty until the eval runs).
-- API base defaults to `http://127.0.0.1:8000`; override with `NEXT_PUBLIC_API_BASE`.
-
-### Generated deliverables (gitignored, rebuild locally)
-
-- `make_deck.py` → `Sentinel_RAG.pptx` (17-slide deck)
-- `build_plain_english_guide.py` → `Sentinel_RAG_Comprehensive_Guide.{html,pdf}`
-- `Sentinel_RAG.pdf` — manual PDF export of the pptx (no generator)
-
-### Evaluation (separate `.venv-eval`)
-
-```bash
-uv venv .venv-eval --python 3.12
-uv pip install --python .venv-eval/bin/python torch --index-url https://download.pytorch.org/whl/cpu
-uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
-
-.venv-eval/bin/python -m eval.build_testset              # 50 Q/A rows -> eval/testset.jsonl
-.venv-eval/bin/python -m eval.run_ragas --smoke          # quick check (1 combo, 5 q)
-.venv-eval/bin/python -m eval.run_ragas --limit 20       # first 20 rows/strategy -> eval/results.json
-.venv-eval/bin/python -m eval.run_ragas --limit 0 --resume   # all rows, fill gaps across quota resets
-```
-
-> **Note:** the full matrix is judge- and pipeline-LLM heavy. On Groq's free tier
-> the daily token cap is easy to exhaust (the pipeline's router/grader also use
-> Groq), which makes every query fall back to `not_found`. Run the full matrix on
-> a paid tier, or after the quota resets. The harness itself is verified by
-> `scripts/check_eval.py` and the `--smoke` run.
-
-## Evaluation
-
-> **Harness notes.** An earlier `results.json` was invalid: 118/120 answers were the
-> fallback message. The dominant cause was a citation-parsing bug — `gpt-oss-120b`
-> sometimes wraps citations in CJK/fullwidth brackets (`【1】`) instead of `[1]`, and
-> the ASCII-only validator rejected them, so grounded answers were discarded as
-> ungrounded. `app/generate.py` now normalizes those markers. The pipeline trace also
-> carries a `fallback_reason`, and the harness records per-sample diagnostics
-> (`final_status`, `fallback_reason`, `grader_score`, `source_doc_hit`) and **refuses
-> to overwrite a good run** when the LLM is rate-limited (probe + abort-on-error-rate).
-> Re-run to regenerate the matrix; use `--resume` to fill it across free-tier quota
-> resets.
-
-Partial run: **2 of 6 combos** (`fixed` only, `--limit 10`). Measured with
-**`openai/gpt-oss-20b`** for both pipeline and judge, because the `gpt-oss-120b`
-free-tier quota was exhausted and the keys then available were all on one Groq
-account (Groq limits are **per account**, not per key). Separate accounts do add
-headroom: the harness pools every `GROQ_API_KEY*` in the environment and
-round-robins across them (pipeline) and gives each account its own judge. Groq
-throttles the matrix partway, so the harness aborts cleanly and keeps what it has;
-finish the remaining combos with:
-
-```bash
-.venv-eval/bin/python -m eval.run_ragas --limit 10 --resume \
-  --pipeline-model openai/gpt-oss-20b --judge-model openai/gpt-oss-20b
-```
+Partial run: **2 of 6 combos**, `n = 10` per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge while the `gpt-oss-120b` free-tier quota was exhausted.
 
 | Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
 |---|---|---|---|---|---|---|
@@ -154,11 +128,37 @@ finish the remaining combos with:
 | semantic | on  | — | — | — | — | pending |
 | semantic | off | — | — | — | — | pending |
 
-¹ `n = 10` per combo; `hierarchical`/`semantic` rows are **pending an honest run**
-(earlier published numbers for these combos were synthetic and have been removed).
-² Caveats: the judge is the same model family as the pipeline (self-grading inflates
-faithfulness/relevancy). Context precision/recall are non-LLM string-similarity
-proxies against whole-document reference contexts — they measure document identity,
-not passage quality, and are **not comparable across chunking strategies**.
-`source_doc_hit_rate = 1.00` for both fixed runs is the meaningful retrieval number.
+`source_doc_hit_rate = 1.00` for both fixed runs is the meaningful retrieval number. The remaining combos are pending an honest run, not omitted on purpose.
 
+<details>
+<summary>Method and caveats</summary>
+
+- The judge is the same model family as the pipeline (self-grading inflates faithfulness/relevancy).
+- Context precision/recall are non-LLM string-similarity proxies against whole-document reference contexts — they measure document identity, not passage quality, and are **not comparable across chunking strategies**.
+- An earlier `results.json` was invalid: 118/120 answers were the fallback message. The cause was a citation-parsing bug — `gpt-oss-120b` sometimes wraps citations in CJK/fullwidth brackets (`【1】`), which the ASCII-only validator rejected, discarding grounded answers as ungrounded. `app/generate.py` now normalizes those markers, the harness records per-sample diagnostics (`final_status`, `fallback_reason`, `grader_score`, `source_doc_hit`), and the bad rows were removed.
+
+</details>
+
+## Engineering notes
+
+<details>
+<summary>Why the code looks the way it does</summary>
+
+- **Atomic index swaps.** A reindex writes to a staging directory and swaps files while holding the retriever lock, so a query can never load a new `.faiss` against an old `chunks.json`. A count tripwire fails loudly if the pair is ever mismatched.
+- **Scoped eval writes.** A run deletes and rewrites only the combos that produced records. An aborted run keeps the last good rows instead of emptying the scoreboard.
+- **Key pooling.** Requests round-robin across `GROQ_API_KEY*` accounts and evict a key on a 401, with the pool guarded by a lock.
+- **Cancellation is a trace.** If the client disconnects mid-stream, the server persists a `cancelled` trace with the steps it got instead of losing the run.
+- **Untrusted corpus text.** Uploaded passages are delimited and the system prompt says to treat them as data, not instructions. It is mitigation, not a guarantee.
+- **Tested where it matters.** The stream hook's abort/reset behavior, the index swap, the reindex race, and the eval-write scoping all have tests.
+
+</details>
+
+## Limits
+
+- Local only — no hosted demo, so it uses your Groq free-tier quota.
+- The corpus is synthetic AI/ML text; the metrics say more about the pipeline than about real documents.
+- Free-tier rate limits make a full 6-combo matrix a multi-run job; the harness resumes instead of restarting.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
