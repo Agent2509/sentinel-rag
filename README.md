@@ -117,18 +117,18 @@ A router labels the query simple or complex to pick a retrieval depth. The retri
 
 ## Results
 
-Partial run: **2 of 6 combos**, `n = 10` per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge while the `gpt-oss-120b` free-tier quota was exhausted.
+Full matrix: **6 of 6 combos**, `n = 10` questions per combo, measured with `openai/gpt-oss-20b` for both pipeline and judge (the `gpt-oss-120b` free-tier quota was exhausted during the first runs).
 
 | Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
 |---|---|---|---|---|---|---|
 | fixed | on  | 1.000 | 0.868 | 0.950 | 1.000 | 15,201 |
 | fixed | off | 0.967 | 0.837 | 0.950 | 1.000 | 14,731 |
-| hierarchical | on  | — | — | — | — | pending |
-| hierarchical | off | — | — | — | — | pending |
-| semantic | on  | — | — | — | — | pending |
-| semantic | off | — | — | — | — | pending |
+| hierarchical | on  | 0.871 | 0.731 | 0.850 | 0.900 | 8,298 |
+| hierarchical | off | 0.871 | 0.713 | 0.850 | 0.900 | 7,206 |
+| semantic | on  | 0.900 | 0.854 | 0.250 | 0.300 | 1,930 |
+| semantic | off | 0.925 | 0.861 | 0.250 | 0.300 | 2,467 |
 
-`source_doc_hit_rate = 1.00` for both fixed runs is the meaningful retrieval number. The remaining combos are pending an honest run, not omitted on purpose.
+`source_doc_hit_rate` is 1.00 for both fixed runs and 0.90 for the other four. Semantic retrieval is **much faster**, and its precision/recall look low only because the non-LLM proxy compares against whole-document reference contexts — those two columns are **not** a quality ranking across chunkers.
 
 <details>
 <summary>Method and caveats</summary>
