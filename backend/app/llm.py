@@ -12,6 +12,7 @@ from openai import (
     APIConnectionError,
     APIStatusError,
     APITimeoutError,
+    AuthenticationError,
     OpenAI,
     RateLimitError,
 )
@@ -26,6 +27,7 @@ load_dotenv()
 # client per key from the same pool (see eval/run_ragas.py).
 _pool: list[OpenAI] = []
 _rr = 0
+_ready = False
 
 
 def api_keys() -> list[str]:
@@ -40,8 +42,8 @@ def api_keys() -> list[str]:
 
 
 def _clients() -> list[OpenAI]:
-    global _pool
-    if not _pool:
+    global _pool, _ready
+    if not _ready:
         keys = api_keys()
         if not keys:
             raise RuntimeError("Missing GROQ_API_KEY in environment/.env")
@@ -49,13 +51,22 @@ def _clients() -> list[OpenAI]:
             OpenAI(base_url=config.GROQ_BASE_URL, api_key=k, timeout=config.LLM_TIMEOUT)
             for k in keys
         ]
+        _ready = True
     return _pool
+
+
+def _evict(client: OpenAI) -> None:
+    """Drop a key the API rejected (e.g. revoked) so it stops breaking every call."""
+    global _pool
+    _pool = [c for c in _pool if c is not client]
 
 
 def get_client(provider: str) -> OpenAI:
     """Return the next client in the round-robin pool (provider kept for callers)."""
     global _rr
     pool = _clients()
+    if not pool:
+        raise RuntimeError("No usable Groq keys left")
     client = pool[_rr % len(pool)]
     _rr += 1
     return client
@@ -97,8 +108,9 @@ def chat(
     # account's key retries on the next account's key.
     attempts = max(retries + 1, len(_clients()))
     for attempt in range(attempts):
+        client = get_client(provider)
         try:
-            resp = get_client(provider).chat.completions.create(
+            resp = client.chat.completions.create(
                 model=model,
                 messages=messages,
                 temperature=temperature,
@@ -106,6 +118,13 @@ def chat(
                 **kwargs,
             )
             return resp.choices[0].message.content or ""
+        except AuthenticationError:
+            # A revoked/invalid key must not poison the pool: drop it and use another.
+            _evict(client)
+            print(f"[llm] dropped a rejected key; {len(_clients())} left")
+            if not _clients():
+                raise
+            continue
         except Exception as e:  # noqa: BLE001 - only transient errors are retried
             if attempt < attempts - 1 and _is_transient(e):
                 time.sleep(config.LLM_RETRY_BACKOFF * (attempt + 1))
