@@ -11,7 +11,7 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 
 ## Screenshots
 
-![Ask — a live run: 2.8 s, grounded answer with footnoted citations](docs/screenshots/ui-trace-success.png)
+![Ask — a live run: 3.1 s, grounded answer with footnoted citations](docs/screenshots/ui-trace-success.png)
 
 | Compare — side-by-side and delta | Dark theme |
 |---|---|

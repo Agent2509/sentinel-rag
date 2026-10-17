@@ -47,12 +47,10 @@ export function TraceStep({
         </span>
         <span className="text-[13px] font-medium">{meta.label}</span>
         {retry && (
-          <span className="font-sans text-[10px] uppercase tracking-wide text-destructive">
-            retry
-          </span>
+          <span className="font-sans text-[10px] text-destructive">retry</span>
         )}
         {answered && (
-          <span className="font-sans text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="font-sans text-[10px] text-muted-foreground">
             answered
           </span>
         )}

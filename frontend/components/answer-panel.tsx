@@ -47,7 +47,7 @@ export function AnswerPanel({
 
   return (
     <div className="space-y-5">
-      <p className="whitespace-pre-wrap font-serif text-[17px] leading-[1.75] tracking-[0.004em]">
+      <p className="whitespace-pre-wrap font-serif text-[18px] leading-[1.75] tracking-[0.004em]">
         {blocks.map((block, i) => {
           const bold = /^\*\*([^*]+)\*\*$/.exec(block);
           return bold ? (

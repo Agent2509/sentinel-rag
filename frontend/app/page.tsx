@@ -183,7 +183,7 @@ function AskView() {
             </div>
           )}
 
-          <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_26rem]">
+          <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_30rem]">
             <section aria-label="Pipeline steps" className="min-w-0">
               <h2 className="font-serif text-xs italic text-muted-foreground">
                 Pipeline

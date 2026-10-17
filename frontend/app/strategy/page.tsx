@@ -15,6 +15,7 @@ import {
 import { AnswerPanel } from "@/components/answer-panel";
 import { ChunkCard } from "@/components/chunk-card";
 import { PageHeader } from "@/components/page-header";
+import { TraceTimeline } from "@/components/trace-timeline";
 import { STRATEGIES } from "@/components/strategy-selector";
 import { useQueryStream } from "@/hooks/use-query-stream";
 import { fallbackLabel } from "@/lib/fallback";
@@ -36,6 +37,13 @@ export default function ComparePage() {
   const leftStream = useQueryStream();
   const rightStream = useQueryStream();
   const running = leftStream.running || rightStream.running;
+  const total = (steps: Step[]) =>
+    steps.reduce((sum, step) => sum + step.duration_ms, 0);
+  const sharedAxis = Math.max(
+    total(leftStream.steps),
+    total(rightStream.steps),
+    1,
+  );
 
   async function runBoth() {
     await Promise.all([
@@ -124,6 +132,7 @@ export default function ComparePage() {
             leftStream.reset();
           }}
           state={leftStream}
+          scaleMax={sharedAxis}
           correction={leftCorrection}
           onCorrection={(c) => {
             setLeftCorrection(c);
@@ -140,6 +149,7 @@ export default function ComparePage() {
             rightStream.reset();
           }}
           state={rightStream}
+          scaleMax={sharedAxis}
           correction={rightCorrection}
           onCorrection={(c) => {
             setRightCorrection(c);
@@ -180,7 +190,7 @@ function DeltaStrip({
         </span>
         {entries.map((e) => (
           <span key={e.key} className="text-[12px] text-muted-foreground">
-            {e.key} — {e.label}
+            <span className="text-foreground">{e.key}</span> {e.label}
           </span>
         ))}
 
@@ -235,6 +245,7 @@ function Panel({
   value,
   onChange,
   state,
+  scaleMax,
   correction,
   onCorrection,
   onCancel,
@@ -245,6 +256,7 @@ function Panel({
   value: Strategy;
   onChange: (s: Strategy) => void;
   state: PanelState;
+  scaleMax: number;
   correction: boolean;
   onCorrection: (c: boolean) => void;
   onCancel: () => void;
@@ -316,6 +328,14 @@ function Panel({
           Self-correction (HyDE)
         </Label>
       </div>
+
+      {state.steps.length > 0 && (
+        <TraceTimeline
+          steps={state.steps}
+          running={state.running}
+          scaleMax={scaleMax}
+        />
+      )}
 
       <div className="mt-3 space-y-3 text-[13px]" aria-live="polite">
         {state.error && <p className="text-destructive">{state.error}</p>}
