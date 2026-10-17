@@ -8,6 +8,14 @@ BM25 + FAISS retriever with RRF fusion, an agentic self-correction loop
 
 See [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) for the full design.
 
+## Screenshots
+
+![Trace View — a live run: 2.97 s, grounded answer with clickable citations](docs/screenshots/ui-trace-success.png)
+
+| Strategy Lab — side-by-side + delta strip | Light theme |
+|---|---|
+| ![Strategy Lab](docs/screenshots/ui-strategy-delta.png) | ![Trace View in light mode](docs/screenshots/ui-trace-light.png) |
+
 ## Architecture
 
 ```mermaid
@@ -34,10 +42,10 @@ flowchart TD
 - [x] **M1** Ingestion: 3 chunkers, FAISS + BM25 indexes, CLI verify
 - [x] **M2** Full pipeline from CLI (router, grader, HyDE, trace)
 - [x] **M3** FastAPI server (SSE, SQLite persistence, health)
-- [x] **M4** RAGAS evaluation (test set, 6-combo matrix, results.json)
+- [x] **M4** RAGAS evaluation (test set, eval matrix harness, results.json)
 - [x] **M5** Frontend (Trace View, Strategy Lab, Scoreboard)
+- [x] **M6** Polish (demo script, deck + guide generators, honest eval table)
 - [x] **M7** Document upload (upload/list/delete, live reindex)
-- [ ] **M6** Polish
 
 ## Run (backend)
 
@@ -47,7 +55,7 @@ uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python torch --index-url https://download.pytorch.org/whl/cpu
 uv pip install --python .venv/bin/python -r requirements.txt
 
-python scripts/gen_corpus.py     # write ~50 docs to data/corpus/
+python scripts/gen_corpus.py     # optional: regenerate the committed 50-doc corpus
 python -m app.ingest             # build FAISS + BM25 indexes
 python -m app.verify             # query every index, print top hits
 
@@ -63,6 +71,8 @@ python scripts/check_pipeline.py # deterministic control-flow self-check (no LLM
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 python scripts/check_api.py      # deterministic API self-check (no LLM)
 python scripts/check_eval.py     # deterministic eval-harness self-check (no LLM)
+python scripts/check_documents.py # deterministic upload/delete self-check (no LLM)
+python -m pytest tests/          # runs the check scripts + unit tests
 ```
 
 ### Frontend
@@ -79,6 +89,12 @@ pnpm build          # typecheck + production build
 - **Documents** (`/documents`) — upload `.md`/`.txt`/`.pdf`; each upload re-embeds the corpus and rebuilds all three indexes live.
 - **Scoreboard** (`/scoreboard`) — RAGAS metrics per strategy from `GET /api/eval` (empty until the eval runs).
 - API base defaults to `http://127.0.0.1:8000`; override with `NEXT_PUBLIC_API_BASE`.
+
+### Generated deliverables (gitignored, rebuild locally)
+
+- `make_deck.py` → `Sentinel_RAG.pptx` (17-slide deck)
+- `build_plain_english_guide.py` → `Sentinel_RAG_Comprehensive_Guide.{html,pdf}`
+- `Sentinel_RAG.pdf` — manual PDF export of the pptx (no generator)
 
 ### Evaluation (separate `.venv-eval`)
 
@@ -112,13 +128,14 @@ uv pip install --python .venv-eval/bin/python -r requirements-eval.txt
 > Re-run to regenerate the matrix; use `--resume` to fill it across free-tier quota
 > resets.
 
-Partial run (`--limit 10`, 3 of 6 combos). Measured with **`openai/gpt-oss-20b`** for both
-pipeline and judge, because the `gpt-oss-120b` free-tier quota was exhausted and the keys
-then available were all on one Groq account (Groq limits are **per account**, not per key).
-Separate accounts do add headroom: the harness pools every `GROQ_API_KEY*` in the
-environment and round-robins across them (pipeline) and gives each account its own judge.
-Groq throttles the matrix partway, so the harness aborts cleanly and keeps what it has;
-finish it later with:
+Partial run: **2 of 6 combos** (`fixed` only, `--limit 10`). Measured with
+**`openai/gpt-oss-20b`** for both pipeline and judge, because the `gpt-oss-120b`
+free-tier quota was exhausted and the keys then available were all on one Groq
+account (Groq limits are **per account**, not per key). Separate accounts do add
+headroom: the harness pools every `GROQ_API_KEY*` in the environment and
+round-robins across them (pipeline) and gives each account its own judge. Groq
+throttles the matrix partway, so the harness aborts cleanly and keeps what it has;
+finish the remaining combos with:
 
 ```bash
 .venv-eval/bin/python -m eval.run_ragas --limit 10 --resume \
@@ -127,13 +144,18 @@ finish it later with:
 
 | Strategy | Correction | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Latency (ms) |
 |---|---|---|---|---|---|---|
-| fixed | on  | 1.000 | 0.868 | 0.950 | 1.000 | — |
-| fixed | off | 0.967 | 0.837 | 0.950 | 1.000 | — |
-| hierarchical | on  | —¹ | —¹ | 0.850 | 0.900 | — |
-| hierarchical | off | _pending_ | | | | |
-| semantic | on  | _pending_ | | | | |
-| semantic | off | _pending_ | | | | |
+| fixed | on  | 1.000 | 0.868 | 0.950 | 1.000 | 15,201 |
+| fixed | off | 0.967 | 0.837 | 0.950 | 1.000 | 14,731 |
+| hierarchical | on  | — | — | — | — | pending |
+| hierarchical | off | — | — | — | — | pending |
+| semantic | on  | — | — | — | — | pending |
+| semantic | off | — | — | — | — | pending |
 
-¹ `n = 10` per combo. `fixed` answered **10/10**; `hierarchical/on` answered 6/10 (3 LLM
-errors, 1 `not_found`) and its judge calls were throttled (`RateLimitError`), so `—` means
-"not judged", not zero. Context metrics are non-LLM and always computed.
+¹ `n = 10` per combo; `hierarchical`/`semantic` rows are **pending an honest run**
+(earlier published numbers for these combos were synthetic and have been removed).
+² Caveats: the judge is the same model family as the pipeline (self-grading inflates
+faithfulness/relevancy). Context precision/recall are non-LLM string-similarity
+proxies against whole-document reference contexts — they measure document identity,
+not passage quality, and are **not comparable across chunking strategies**.
+`source_doc_hit_rate = 1.00` for both fixed runs is the meaningful retrieval number.
+

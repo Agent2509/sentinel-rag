@@ -12,7 +12,7 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 
 | Decision | Choice |
 |---|---|
-| **Corpus** | ~40 synthetic markdown docs on **Full AI/ML spectrum** (fundamentals → LLMs → RAG → agents → MLOps) |
+| **Corpus** | 50 synthetic markdown docs on **Full AI/ML spectrum** (fundamentals → LLMs → RAG → agents → MLOps) |
 | **Fixed chunker** | 512 tokens, 50-token overlap |
 | **Hierarchical chunker** | Child = 256 tokens, Parent = 1024 tokens (4:1 ratio); every child stores `parent_id`, parent text kept for generation |
 | **Semantic chunker** | Cosine similarity between consecutive sentence embeddings; split at 25th percentile; **hard cap 512 tokens per chunk** |
@@ -50,7 +50,7 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 | **Accessibility** | Trace region is `aria-live="polite"`; nav and toggles keyboard-reachable with labels; text contrast ≥ 4.5:1 in both themes |
 | **Strategy Lab** | Live queries (on-the-fly), 2 side-by-side result panels with dropdown selectors |
 | **Branding** | "Sentinel RAG" wordmark + radar/shield icon in nav |
-| **RAGAS eval** | `ragas` library with Groq as evaluator LLM. Test set includes **reference answer + reference contexts** (required for context metrics). |
+| **RAGAS eval** | `ragas` library with Groq as evaluator LLM. Test set includes **reference answer + reference contexts** (required for context metrics). The published partial matrix ran on `openai/gpt-oss-20b` for both pipeline and judge (free-tier quota). |
 | **Test set** | Groq (`openai/gpt-oss-120b`) generates 1–2 Q/A pairs per doc, each with `{question, answer, contexts[]}` → ~50 pairs JSONL |
 | **Error handling** | Router parse fail → default `complex`; Grader parse fail → error sentinel (distinct from score 0.0, forces fallback rather than burning retries); HyDE fail → skip straight to fallback; LLM call fail → retry once, then `final_status: "error"` |
 | **Final statuses** | `success` \| `not_found` \| `error` |
@@ -65,7 +65,7 @@ All decisions are locked. This table is the single source of truth; `config.py` 
 
 ```mermaid
 flowchart TD
-    A["📁 Corpus<br/>~40 AI/ML markdown docs"] --> B["⚙️ Ingestion Pipeline"]
+    A["📁 Corpus<br/>50 AI/ML markdown docs"] --> B["⚙️ Ingestion Pipeline"]
 
     B --> C1["① Fixed Chunker<br/>512 tokens, 50 overlap"]
     B --> C2["② Hierarchical Chunker<br/>256 child / 1024 parent"]
@@ -124,16 +124,23 @@ sentinel-rag/
 │   │   ├── grader.py             # Groq: relevance 0-1 JSON (+ error sentinel on parse fail)
 │   │   ├── hyde.py               # Groq: hypothetical document
 │   │   ├── generate.py           # Groq: answer + citation parse/validate/remap
-│   │   ├── llm.py                # Thin openai-SDK helper: client(base_url, api_key), chat(), JSON parse helper
+│   │   ├── llm.py                # Thin openai-SDK helper: key pool + round-robin, chat(), chat_json(), JSON parse helper
 │   │   ├── pipeline.py           # Orchestrator: router → retrieve → grade → (HyDE retry) → generate. Emits SSE events; cancellable on disconnect.
+│   │   ├── store.py              # Index save/load: FAISS + chunks.json per strategy (BM25 rebuilt at load)
+│   │   ├── documents.py          # Corpus files on disk: upload (md/txt/pdf), hash dedupe, safe delete
 │   │   └── trace_store.py        # sqlite3 persistence (WAL), traces + eval_results
 │   ├── eval/
 │   │   ├── build_testset.py      # Groq: {question, answer, contexts[]} per doc → JSONL
-│   │   └── run_ragas.py          # RAGAS: 3 strategies × correction on/off → results.json
+│   │   ├── run_ragas.py          # RAGAS: 3 strategies × correction on/off → results.json
+│   │   └── harness.py            # Pure trace→RAGAS mapping, metrics aggregation, diagnostics
+│   ├── scripts/                  # gen_corpus.py, corpus_part*.py, corpus_extras_*.py (corpus generators),
+│   │                             # check_{pipeline,api,eval,documents}.py (deterministic self-checks)
+│   ├── tests/                    # pytest: runs the check scripts + unit tests (retriever, llm json, dedupe)
 │   ├── data/
-│   │   ├── corpus/               # Source markdown documents (~40 AI/ML docs)
-│   │   └── index/                # (Generated) FAISS indices, BM25 pickles, SQLite DB
+│   │   ├── corpus/               # Source markdown documents (50 AI/ML docs)
+│   │   └── index/                # (Generated) FAISS indices, chunk JSON, SQLite DB
 │   ├── requirements.txt          # Pinned Python dependencies
+│   ├── requirements-eval.txt     # Eval-only venv (ragas; openai pin conflicts with the app venv)
 │   ├── .env.example              # GROQ_API_KEY= placeholder
 │   └── .env                      # (Gitignored) Actual API keys
 ├── frontend/
@@ -142,10 +149,13 @@ sentinel-rag/
 │   ├── tailwind.config.ts        # Dark mode + Inter font
 │   ├── next.config.ts            # Plain Next.js config (no API proxy — CORS handles it)
 │   ├── app/
-│   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 3 links, dark-mode toggle, health dot)
+│   │   ├── layout.tsx            # Nav bar (Sentinel RAG, 4 links, dark-mode toggle, health dot)
 │   │   ├── page.tsx              # Screen 1: Trace View — SSE pipeline animation, query + answer panel
 │   │   ├── strategy/page.tsx     # Screen 2: Strategy Lab — dropdowns, side-by-side live comparison
-│   │   └── scoreboard/page.tsx   # Screen 3: Scoreboard — CSS bar charts for RAGAS metrics + latency
+│   │   ├── documents/page.tsx    # Screen 3: Documents — upload/list/delete + live reindex status
+│   │   ├── scoreboard/page.tsx   # Screen 4: Scoreboard — CSS bar charts for RAGAS metrics + latency
+│   │   ├── error.tsx             # Route error boundary
+│   │   └── not-found.tsx         # 404 page
 │   ├── components/
 │   │   ├── trace-step.tsx        # Animated step card (slide-in, amber/green + icon/text)
 │   │   ├── chunk-card.tsx        # Retrieved chunk with score bar
@@ -155,12 +165,19 @@ sentinel-rag/
 │   │   ├── health-dot.tsx        # Green/red backend indicator
 │   │   ├── dark-mode-toggle.tsx  # Theme toggle
 │   │   └── nav-bar.tsx           # Branded nav
-│   └── lib/
-│       ├── api.ts                # Fetch + SSE client
-│       └── types.ts              # TS types matching trace schema
+│   ├── lib/
+│   │   ├── api.ts                # Fetch + SSE client
+│   │   ├── types.ts              # TS types matching trace schema
+│   │   └── fallback.ts           # Shared fallback-reason labels
+│   └── hooks/
+│       └── use-query-stream.ts   # Shared query-stream hook (run/cancel/load)
+├── sample_docs/                  # Out-of-corpus upload demo files
 ├── README.md                     # Pitch, Mermaid architecture, "Run in 3 commands", eval table, future work
-├── demo.md                       # Live presentation click-path
-└── .gitignore                    # .env, __pycache__, node_modules, .venv, data/index/
+├── demo.md                       # Live presentation click-path (canonical demo script)
+├── PRESENTATION_MASTER_GUIDE.md  # Slide-by-slide talk track (canonical narration)
+├── make_deck.py                  # Generates Sentinel_RAG.pptx
+├── build_plain_english_guide.py  # Generates the Comprehensive Guide HTML/PDF
+└── .gitignore                    # .env, __pycache__, node_modules, .venv, data/index/, generated deliverables
 ```
 
 ---
@@ -317,7 +334,8 @@ CREATE TABLE IF NOT EXISTS eval_results (
     context_precision REAL,          -- requires reference contexts in test set
     context_recall REAL,             -- requires reference contexts in test set
     latency_ms INTEGER,
-    run_timestamp TEXT NOT NULL
+    run_timestamp TEXT NOT NULL,
+    corpus_version TEXT             -- ingest.corpus_version() at eval time (provenance)
 );
 ```
 
@@ -329,7 +347,7 @@ CREATE TABLE IF NOT EXISTS eval_results (
 
 - [ ] **1.1 Scaffold project** — Directory structure, `requirements.txt` (**pinned**), `.env.example`, `.gitignore`, `config.py`
 - [ ] **1.2 Create virtual environment** — `uv venv backend/.venv` and install pinned deps
-- [ ] **1.3 Generate corpus** — ~40 markdown docs across the AI/ML spectrum → `data/corpus/`
+- [ ] **1.3 Generate corpus** — 50 markdown docs across the AI/ML spectrum → `data/corpus/`
 - [ ] **1.4 Implement `embeddings.py`** — bge-small-en-v1.5 singleton, lazy load, L2 norm, **query instruction prefix on queries only**
 - [ ] **1.5 Implement `chunkers/fixed.py`** — 512 tokens, 50 overlap (tiktoken)
 - [ ] **1.6 Implement `chunkers/hierarchical.py`** — parent 1024 / child 256, children carry `parent_id`, parent text retained
@@ -349,7 +367,7 @@ python -m app.verify              # Queries all indexes, prints top chunks
 
 ---
 
-## Milestone 2-6 Overview
+## Milestone 2-7 Overview
 
 | Milestone | Target | Key Deliverables |
 |---|---|---|
@@ -357,7 +375,8 @@ python -m app.verify              # Queries all indexes, prints top chunks
 | **M3** | API server | FastAPI endpoints, SSE streaming (first-event `trace_id`, disconnect stops between steps), SQLite (WAL) persistence, startup warm-up + index guard, health endpoint |
 | **M4** | Evaluation | `build_testset.py` (`{question, answer, contexts[]}`), `run_ragas.py` (6 combos), `results.json` |
 | **M5** | Frontend | Trace View, Strategy Lab, Scoreboard. Dark mode, `prefers-reduced-motion` animations, `aria-live` trace, responsive. |
-| **M6** | Polish | README with real eval numbers, `demo.md` click-path, backup screen recording |
+| **M7** | Document upload | `documents.py` (upload/list/delete, hash dedupe, path-traversal safe), `/api/documents` + `/api/reindex`, live background reindex, Documents page |
+| **M6** | Polish | README with real eval numbers, `demo.md` click-path, deck + guide generators |
 
 ---
 
