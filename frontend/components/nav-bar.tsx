@@ -17,17 +17,17 @@ export function NavBar() {
   const pathname = usePathname();
 
   return (
-    <header className="border-b border-border/60 backdrop-blur sticky top-0 z-20 bg-background/80">
+    <header className="sticky top-0 z-20 border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <nav
         className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4"
         aria-label="Main"
       >
-        <Link href="/" className="flex items-center gap-2 font-semibold">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-emerald-500" aria-hidden />
-          <span>Sentinel RAG</span>
+          <span className="hidden font-display text-lg tracking-tight sm:inline">Sentinel RAG</span>
         </Link>
 
-        <div className="ml-2 flex items-center gap-1">
+        <div className="ml-2 flex items-center gap-1 overflow-x-auto [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_85%,transparent)]">
           {LINKS.map((link) => {
             const active = pathname === link.href;
             return (
@@ -35,9 +35,9 @@ export function NavBar() {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                className={`relative shrink-0 rounded-md px-3 py-1.5 text-sm transition-colors ${
                   active
-                    ? "bg-secondary text-secondary-foreground"
+                    ? "bg-primary/10 text-foreground after:absolute after:inset-x-3 after:bottom-0 after:h-[2px] after:rounded-full after:bg-primary after:shadow-[0_0_8px] after:shadow-primary/70"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

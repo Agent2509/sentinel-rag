@@ -20,7 +20,7 @@ export interface QueryBody {
 /**
  * POST /api/query returns SSE. EventSource can't POST, so we read the fetch
  * body stream and split on the SSE frame separator. Handles frames that span
- * reader chunks.
+ * reader chunks and multi-line data payloads.
  */
 export async function streamQuery(
   body: QueryBody,
@@ -35,14 +35,7 @@ export async function streamQuery(
   });
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const data = await res.json();
-      detail = data.detail ?? detail;
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new Error(detail);
+    throw new Error(await errorDetail(res));
   }
   if (!res.body) throw new Error("Response has no body");
 
@@ -55,51 +48,67 @@ export async function streamQuery(
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
 
-    const frames = buffer.split("\n\n");
+    const frames = buffer.split(/\r?\n\r?\n/);
     buffer = frames.pop() ?? ""; // last piece may be incomplete
     for (const frame of frames) {
-      const line = frame.split("\n").find((l) => l.startsWith("data:"));
-      if (!line) continue;
-      const payload = line.slice(5).trim();
+      const payload = frame
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("\n")
+        .trim();
       if (!payload) continue;
       try {
-        onEvent(JSON.parse(payload) as SSEEvent);
+        const event = JSON.parse(payload) as SSEEvent | { type: "start" };
+        if (event.type === "start") continue; // carries nothing consumers need
+        onEvent(event);
       } catch {
-        /* ignore malformed frame */
+        console.warn("[sse] malformed frame:", payload.slice(0, 200));
       }
     }
   }
 }
 
-async function getJSON<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, { signal, cache: "no-store" });
-  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+async function errorDetail(res: Response): Promise<string> {
+  const fallback = `${res.url} -> ${res.status}`;
+  try {
+    const data = (await res.json()) as { detail?: unknown };
+    if (typeof data.detail === "string") return data.detail;
+    if (data.detail) return JSON.stringify(data.detail);
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function getJSON<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await errorDetail(res));
   return (await res.json()) as T;
 }
 
-export const getHealth = (signal?: AbortSignal) =>
-  getJSON<Health>("/api/health", signal);
-export const getEval = (signal?: AbortSignal) =>
-  getJSON<EvalRow[]>("/api/eval", signal);
-export const getTraces = (limit = 20, signal?: AbortSignal) =>
-  getJSON<TraceSummary[]>(`/api/traces?limit=${limit}`, signal);
-export const getTrace = (id: string, signal?: AbortSignal) =>
-  getJSON<Trace>(`/api/trace/${encodeURIComponent(id)}`, signal);
+// SQLite stores correction_enabled as 0/1; normalize to boolean at the boundary.
+const bool01 = (v: number | boolean) => !!v;
 
-export const getDocuments = (signal?: AbortSignal) =>
-  getJSON<DocumentsPayload>("/api/documents", signal);
+export const getHealth = () => getJSON<Health>("/api/health");
+export const getEval = async () =>
+  (await getJSON<EvalRow[]>("/api/eval")).map((r) => ({
+    ...r,
+    correction_enabled: bool01(r.correction_enabled),
+  }));
+export const getTraces = async (limit = 20) =>
+  (await getJSON<TraceSummary[]>(`/api/traces?limit=${limit}`)).map((t) => ({
+    ...t,
+    correction_enabled: bool01(t.correction_enabled),
+  }));
+export const getTrace = (id: string) =>
+  getJSON<Trace>(`/api/trace/${encodeURIComponent(id)}`);
+
+export const getDocuments = () => getJSON<DocumentsPayload>("/api/documents");
 
 async function send(path: string, init: RequestInit): Promise<Response> {
   const res = await fetch(`${API_BASE}${path}`, init);
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      detail = (await res.json()).detail ?? detail;
-    } catch {
-      /* non-JSON */
-    }
-    throw new Error(detail);
-  }
+  if (!res.ok) throw new Error(await errorDetail(res));
   return res;
 }
 
@@ -116,5 +125,5 @@ export async function deleteDocument(name: string): Promise<void> {
 
 export async function triggerReindex(): Promise<void> {
   const res = await fetch(`${API_BASE}/api/reindex`, { method: "POST" });
-  if (!res.ok && res.status !== 409) throw new Error(`reindex ${res.status}`);
+  if (!res.ok && res.status !== 409) throw new Error(await errorDetail(res));
 }

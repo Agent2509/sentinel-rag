@@ -32,7 +32,12 @@ export function HealthDot() {
     };
   }, []);
 
-  const ok = !down && !!health && health.indexes_ok;
+  const tone =
+    down || !health
+      ? "bg-red-500"
+      : health.status === "ok" && health.indexes_ok
+        ? "bg-emerald-500"
+        : "bg-amber-500"; // degraded, or indexes not ready
   const label = down
     ? "backend unreachable"
     : health
@@ -46,7 +51,7 @@ export function HealthDot() {
     >
       <span
         aria-hidden
-        className={`h-2 w-2 rounded-full ${ok ? "bg-emerald-500" : "bg-red-500"}`}
+        className={`h-2 w-2 rounded-full ${tone}`}
       />
       {label}
     </span>

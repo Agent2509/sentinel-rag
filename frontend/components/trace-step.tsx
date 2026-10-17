@@ -22,16 +22,25 @@ export const STAGE_META: Record<string, { icon: LucideIcon; label: string }> = {
   generation: { icon: MessageSquareText, label: "Generation" },
 };
 
+// Coloured left rail per stage: the pipeline reads as a story at a glance.
+export const STAGE_ACCENT: Record<string, string> = {
+  routing: "border-l-sky-500/70",
+  retrieval: "border-l-primary/70",
+  grading: "border-l-violet-500/70",
+  hyde_rewrite: "border-l-amber-500/70",
+  generation: "border-l-emerald-500/70",
+};
+
 export function TraceStep({
   step,
   index = 0,
-  threshold = 0.6,
+  threshold = null,
   onCitation,
   highlightedChunk,
 }: {
   step: Step;
   index?: number;
-  threshold?: number;
+  threshold?: number | null;
   onCitation?: (chunkId: string) => void;
   highlightedChunk?: string | null;
 }) {
@@ -52,12 +61,8 @@ export function TraceStep({
   return (
     <Card
       style={{ animationDelay: `${index * 20}ms`, animationFillMode: "backwards" }}
-      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none ${
-        tone === "retry"
-          ? "border-amber-500/40"
-          : tone === "answer"
-            ? "border-emerald-500/40"
-            : ""
+      className={`animate-in fade-in slide-in-from-bottom-2 duration-300 border-l-2 motion-reduce:animate-none ${
+        STAGE_ACCENT[step.action] ?? "border-l-border"
       }`}
     >
       <CardHeader className="pb-2">
@@ -145,7 +150,7 @@ function GradeView({
   threshold,
 }: {
   grade: NonNullable<Step["grade"]>;
-  threshold: number;
+  threshold: number | null;
 }) {
   if (grade.error) {
     return (
@@ -158,22 +163,34 @@ function GradeView({
     );
   }
 
-  const relevant = grade.score !== null && grade.score >= threshold;
+  // without a known threshold, show the score but judge nothing
+  const relevant =
+    threshold === null || grade.score === null
+      ? null
+      : grade.score >= threshold;
   const pct = Math.round((grade.score ?? 0) * 100);
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <Badge variant={relevant ? "default" : "destructive"}>
-          {relevant ? "✓ relevant" : "✗ low"}
-        </Badge>
+        {relevant !== null && (
+          <Badge variant={relevant ? "default" : "destructive"}>
+            {relevant ? "✓ relevant" : "✗ low"}
+          </Badge>
+        )}
         <span className="font-mono text-xs text-muted-foreground">
-          score {grade.score === null ? "n/a" : grade.score.toFixed(2)} · pass ≥{" "}
-          {threshold}
+          score {grade.score === null ? "n/a" : grade.score.toFixed(2)}
+          {threshold !== null && ` · pass ≥ ${threshold}`}
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-secondary">
         <div
-          className={`h-full rounded-full ${relevant ? "bg-emerald-500" : "bg-amber-500"}`}
+          className={`h-full rounded-full ${
+            relevant === null
+              ? "bg-primary"
+              : relevant
+                ? "bg-emerald-500"
+                : "bg-amber-500"
+          }`}
           style={{ width: `${pct}%` }}
         />
       </div>

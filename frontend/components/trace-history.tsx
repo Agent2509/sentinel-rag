@@ -55,7 +55,11 @@ export function TraceHistory({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
         {!traces && !error && (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -77,25 +81,33 @@ export function TraceHistory({
                   type="button"
                   onClick={() => onSelect(t.id)}
                   aria-current={activeId === t.id}
-                  className={`w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    activeId === t.id ? "bg-muted" : ""
+                  className={`w-full rounded-md border-l-2 px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    activeId === t.id
+                      ? "border-l-primary bg-muted/70"
+                      : "border-l-transparent"
                   }`}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
                     <Badge
                       variant={statusTone(t.final_status)}
-                      className="text-[10px]"
+                      className="shrink-0 text-[10px]"
                     >
                       {t.final_status}
                     </Badge>
-                    <span className="truncate text-sm">{t.query}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm">
+                      {t.query}
+                    </span>
                   </span>
                   <span className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                     <span>{t.strategy}</span>
                     <span>{t.correction_enabled ? "correction" : "raw"}</span>
                     <span className="font-mono">{t.latency_ms} ms</span>
                     <span className="ml-auto font-mono">
-                      {t.timestamp.slice(11, 19)}
+                      {new Date(t.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
                     </span>
                   </span>
                 </button>

@@ -54,12 +54,6 @@ export interface Trace {
 }
 
 export type SSEEvent =
-  | {
-      type: "start";
-      trace_id: string;
-      strategy: Strategy;
-      correction_enabled: boolean;
-    }
   | { type: "step"; trace_id: string; step: Step }
   | { type: "final"; trace_id: string; trace: Trace };
 
@@ -71,6 +65,9 @@ export interface Health {
   trace_count: number;
   strategies: Strategy[];
   grader_threshold?: number;
+  reindexing?: boolean;
+  last_reindex_error?: string | null;
+  corpus_version?: string;
 }
 
 export interface TraceSummary {
@@ -78,7 +75,7 @@ export interface TraceSummary {
   timestamp: string;
   query: string;
   strategy: Strategy;
-  correction_enabled: number;
+  correction_enabled: boolean;
   final_status: FinalStatus;
   latency_ms: number;
   retries: number;
@@ -87,7 +84,7 @@ export interface TraceSummary {
 export interface EvalRow {
   id: string;
   strategy: Strategy;
-  correction_enabled: number;
+  correction_enabled: boolean;
   question: string;
   faithfulness: number | null;
   answer_relevancy: number | null;

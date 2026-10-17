@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 export function DarkModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  // Mount guard: SSR and the first client render must agree, so the theme is
+  // only read after mount. This is the documented pattern; the rule flags it.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   // Gate on `mounted` so SSR and the first client render agree (avoids a

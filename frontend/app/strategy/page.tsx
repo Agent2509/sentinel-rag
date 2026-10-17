@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Loader2, Play, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +16,10 @@ import {
 } from "@/components/ui/select";
 import { AnswerPanel } from "@/components/answer-panel";
 import { ChunkCard } from "@/components/chunk-card";
+import { PageHeader } from "@/components/page-header";
 import { STRATEGIES } from "@/components/strategy-selector";
-import { streamQuery } from "@/lib/api";
+import { useQueryStream } from "@/hooks/use-query-stream";
+import { fallbackLabel } from "@/lib/fallback";
 import type { Strategy, Step, Trace } from "@/lib/types";
 
 interface PanelState {
@@ -25,75 +27,39 @@ interface PanelState {
   final: Trace | null;
   running: boolean;
   error: string | null;
-  correction: boolean;
 }
-
-const EMPTY: PanelState = {
-  steps: [],
-  final: null,
-  running: false,
-  error: null,
-  correction: true,
-};
 
 export default function StrategyLab() {
   const [query, setQuery] = useState("What is LoRA?");
   const [left, setLeft] = useState<Strategy>("fixed");
   const [right, setRight] = useState<Strategy>("semantic");
-  const [panels, setPanels] = useState<Record<string, PanelState>>({
-    left: EMPTY,
-    right: EMPTY,
-  });
-  const abortRef = useRef<Record<string, AbortController>>({});
-  const running = panels.left.running || panels.right.running;
-
-  useEffect(
-    () => () => Object.values(abortRef.current).forEach((c) => c.abort()),
-    [],
-  );
-
-  function patch(key: string, update: Partial<PanelState>) {
-    setPanels((prev) => ({ ...prev, [key]: { ...prev[key], ...update } }));
-  }
-
-  async function runSide(key: string, strategy: Strategy) {
-    const controller = new AbortController();
-    abortRef.current[key] = controller;
-    patch(key, { steps: [], final: null, error: null, running: true });
-    try {
-      await streamQuery(
-        { query, strategy, correction_enabled: panels[key].correction },
-        (event) => {
-          if (event.type === "step") {
-            setPanels((prev) => ({
-              ...prev,
-              [key]: { ...prev[key], steps: [...prev[key].steps, event.step] },
-            }));
-          } else if (event.type === "final") {
-            patch(key, { final: event.trace });
-          }
-        },
-        controller.signal,
-      );
-    } catch (e) {
-      if ((e as Error).name !== "AbortError") {
-        patch(key, { error: (e as Error).message });
-      }
-    } finally {
-      delete abortRef.current[key];
-      patch(key, { running: false });
-    }
-  }
+  const [leftCorrection, setLeftCorrection] = useState(true);
+  const [rightCorrection, setRightCorrection] = useState(true);
+  const leftStream = useQueryStream();
+  const rightStream = useQueryStream();
+  const running = leftStream.running || rightStream.running;
 
   async function runBoth() {
-    await Promise.all([runSide("left", left), runSide("right", right)]);
+    await Promise.all([
+      leftStream.run({ query, strategy: left, correction_enabled: leftCorrection }),
+      rightStream.run({
+        query,
+        strategy: right,
+        correction_enabled: rightCorrection,
+      }),
+    ]);
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <PageHeader
+        title="Strategy Lab"
+        description="Run one query through two chunking strategies side by side."
+      />
+
       <Card className="mb-6">
         <CardContent className="flex flex-col gap-3 pt-6">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               aria-label="Query"
               value={query}
@@ -118,23 +84,111 @@ export default function StrategyLab() {
         <Panel
           title="A"
           value={left}
-          onChange={setLeft}
-          state={panels.left}
-          onCorrection={(c) => patch("left", { correction: c })}
-          onCancel={() => abortRef.current.left?.abort()}
+          onChange={(v) => {
+            setLeft(v);
+            leftStream.reset();
+          }}
+          state={leftStream}
+          correction={leftCorrection}
+          onCorrection={(c) => {
+            setLeftCorrection(c);
+            leftStream.reset();
+          }}
+          onCancel={leftStream.cancel}
           disabled={running}
         />
         <Panel
           title="B"
           value={right}
-          onChange={setRight}
-          state={panels.right}
-          onCorrection={(c) => patch("right", { correction: c })}
-          onCancel={() => abortRef.current.right?.abort()}
+          onChange={(v) => {
+            setRight(v);
+            rightStream.reset();
+          }}
+          state={rightStream}
+          correction={rightCorrection}
+          onCorrection={(c) => {
+            setRightCorrection(c);
+            rightStream.reset();
+          }}
+          onCancel={rightStream.cancel}
           disabled={running}
         />
       </div>
+
+      {leftStream.final && rightStream.final && (
+        <DeltaStrip
+          a={{ label: left, trace: leftStream.final }}
+          b={{ label: right, trace: rightStream.final }}
+        />
+      )}
     </div>
+  );
+}
+
+/** What the page exists for: the comparison that was never on screen. */
+function DeltaStrip({
+  a,
+  b,
+}: {
+  a: { label: string; trace: Trace };
+  b: { label: string; trace: Trace };
+}) {
+  const entries = [
+    { key: "A", label: a.label, trace: a.trace },
+    { key: "B", label: b.label, trace: b.trace },
+  ];
+  const fastest =
+    a.trace.total_latency_ms <= b.trace.total_latency_ms ? "A" : "B";
+
+  return (
+    <Card className="mt-6">
+      <CardContent className="grid grid-cols-[4.5rem_1fr_1fr] items-center gap-x-4 gap-y-2 pt-4 text-sm">
+        <span className="text-xs text-muted-foreground">compare</span>
+        {entries.map((e) => (
+          <span key={e.key} className="font-mono text-xs text-muted-foreground">
+            {e.key} · {e.label}
+          </span>
+        ))}
+
+        <span className="text-xs text-muted-foreground">Latency</span>
+        {entries.map((e) => (
+          <span key={e.key} className="flex items-center gap-1.5 font-mono">
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${
+                fastest === e.key ? "bg-emerald-400" : "bg-transparent"
+              }`}
+            />
+            {e.trace.total_latency_ms} ms
+            {fastest === e.key && <span className="sr-only">fastest</span>}
+          </span>
+        ))}
+
+        <span className="text-xs text-muted-foreground">Retries</span>
+        {entries.map((e) => (
+          <span key={e.key} className="font-mono">
+            r{e.trace.retries}
+          </span>
+        ))}
+
+        <span className="text-xs text-muted-foreground">Status</span>
+        {entries.map((e) => (
+          <Badge
+            key={e.key}
+            variant={
+              e.trace.final_status === "success"
+                ? "default"
+                : e.trace.final_status === "not_found"
+                  ? "secondary"
+                  : "destructive"
+            }
+            className="w-fit"
+          >
+            {e.trace.final_status}
+          </Badge>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -143,6 +197,7 @@ function Panel({
   value,
   onChange,
   state,
+  correction,
   onCorrection,
   onCancel,
   disabled,
@@ -151,6 +206,7 @@ function Panel({
   value: Strategy;
   onChange: (s: Strategy) => void;
   state: PanelState;
+  correction: boolean;
   onCorrection: (c: boolean) => void;
   onCancel: () => void;
   disabled: boolean;
@@ -160,9 +216,16 @@ function Panel({
   const chunks = (retrieval?.chunks ?? state.final?.closest_chunks ?? []).slice(0, 3);
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-2">
+    <Card className="min-w-0">
+      <CardHeader className="grid-cols-[1fr_auto] items-center gap-2">
         <CardTitle className="flex items-center gap-2 text-sm">
+          {/* A/B tint without plumbing a prop: emerald vs teal, same dot in the delta strip */}
+          <span
+            aria-hidden
+            className={`h-2 w-2 shrink-0 rounded-full ${
+              title === "A" ? "bg-emerald-400" : "bg-cyan-400"
+            }`}
+          />
           <span className="text-muted-foreground">{title}</span>{" "}
           <Select
             value={value}
@@ -211,7 +274,7 @@ function Panel({
         <div className="flex items-center gap-2">
           <Switch
             id={`correction-${title}`}
-            checked={state.correction}
+            checked={correction}
             onCheckedChange={onCorrection}
             disabled={disabled}
           />
@@ -222,7 +285,17 @@ function Panel({
             Self-correction (HyDE)
           </Label>
         </div>
-        {state.error && <p className="text-destructive">{state.error}</p>}
+        {state.error && (
+          <p role="alert" className="text-destructive">
+            {state.error}
+          </p>
+        )}
+        {!state.running && !state.final && state.steps.length === 0 && (
+          <p className="text-muted-foreground">
+            Pick a chunking strategy above and hit Compare to see both pipelines
+            run on the same query.
+          </p>
+        )}
         {state.running && (
           <p className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -232,7 +305,7 @@ function Panel({
         {chunks.map((c) => (
           <ChunkCard key={c.chunk_id} chunk={c} />
         ))}
-        {generation?.answer !== undefined && (
+        {generation?.answer && (
           <AnswerPanel answer={generation.answer} citations={generation.citations} />
         )}
         {!state.running && !generation && state.final && (
@@ -245,7 +318,7 @@ function Panel({
             {state.final.fallback_reason && (
               <p className="text-xs text-muted-foreground/80">
                 <span className="font-medium text-foreground">Why: </span>
-                {state.final.fallback_reason.replace(/_/g, " ")}
+                {fallbackLabel(state.final.fallback_reason)}
               </p>
             )}
           </div>

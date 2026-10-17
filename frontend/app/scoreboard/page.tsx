@@ -4,11 +4,18 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page-header";
 import { ScoreBar } from "@/components/score-chart";
 import { getEval } from "@/lib/api";
 import type { EvalRow } from "@/lib/types";
 
-const METRICS: { key: keyof EvalRow; label: string }[] = [
+type MetricKey =
+  | "faithfulness"
+  | "answer_relevancy"
+  | "context_precision"
+  | "context_recall";
+
+const METRICS: { key: MetricKey; label: string }[] = [
   { key: "faithfulness", label: "Faithfulness" },
   { key: "answer_relevancy", label: "Answer relevancy" },
   { key: "context_precision", label: "Context precision" },
@@ -17,7 +24,7 @@ const METRICS: { key: keyof EvalRow; label: string }[] = [
 
 interface Group {
   strategy: string;
-  correction: number;
+  correction: boolean;
   n: number;
   metrics: Record<string, number | null>;
 }
@@ -33,20 +40,33 @@ function group(rows: EvalRow[]): Group[] {
   const map = new Map<string, EvalRow[]>();
   for (const row of rows) {
     const key = `${row.strategy}|${row.correction_enabled}`;
-    (map.get(key) ?? map.set(key, []).get(key)!).push(row);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(row);
   }
-  return [...map.values()].map((rs) => ({
-    strategy: rs[0].strategy,
-    correction: rs[0].correction_enabled,
-    n: rs.length,
-    metrics: Object.fromEntries([
-      ...METRICS.map((m) => [
-        m.key as string,
-        mean(rs.map((r) => r[m.key] as number | null)),
-      ]),
-      ["latency_ms", mean(rs.map((r) => r.latency_ms))],
-    ]),
-  }));
+  return [...map.values()].map((rs) => {
+    const metrics: Record<string, number | null> = {
+      latency_ms: mean(rs.map((r) => r.latency_ms)),
+    };
+    for (const m of METRICS) metrics[m.key] = mean(rs.map((r) => r[m.key]));
+    return {
+      strategy: rs[0].strategy,
+      correction: rs[0].correction_enabled,
+      n: rs.length,
+      metrics,
+    };
+  });
+}
+
+/** Top combo per metric — only meaningful once a metric has more than one combo. */
+function bestPerMetric(groups: Group[]) {
+  return METRICS.flatMap((m) => {
+    const ranked = groups
+      .map((g) => ({ group: g, value: g.metrics[m.key] }))
+      .filter((r): r is { group: Group; value: number } => typeof r.value === "number")
+      .sort((x, y) => y.value - x.value);
+    if (ranked.length < 2) return [];
+    return [{ label: m.label, ...ranked[0] }];
+  });
 }
 
 export default function Scoreboard() {
@@ -64,24 +84,33 @@ export default function Scoreboard() {
   }, []);
 
   const groups = rows ? group(rows) : [];
+  const best = bestPerMetric(groups);
   const maxLatency = Math.max(
     1,
     ...groups.map((g) => (g.metrics.latency_ms as number | null) ?? 0),
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-1 text-lg font-semibold">Scoreboard</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        RAGAS metrics per chunking strategy (averaged over the evaluation set).
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <PageHeader
+        title="Scoreboard"
+        description="RAGAS metrics per chunking strategy, averaged over the evaluation set."
+      >
         {rows && rows.length > 0 && rows[0].corpus_version && (
-          <span className="ml-1 font-mono text-xs">
-            corpus v{rows[0].corpus_version}
+          <span
+            className="rounded-md border border-border/60 px-2 py-1 font-mono text-[11px] text-muted-foreground"
+            title={rows[0].corpus_version}
+          >
+            corpus v{rows[0].corpus_version.slice(0, 10)}
           </span>
         )}
-      </p>
+      </PageHeader>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       {rows === null && !error && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -95,14 +124,45 @@ export default function Scoreboard() {
           <CardContent className="pt-6 text-sm text-muted-foreground">
             No evaluation rows yet. Run the eval on the backend:
             <code className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-              .venv-eval/bin/python -m eval.run_ragas
+              python -m eval.run_ragas
             </code>
           </CardContent>
         </Card>
       )}
 
       {groups.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <>
+          {best.length > 1 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted-foreground">Best per metric:</span>
+              {best.map((b) => (
+                <Badge key={b.label} variant="outline" className="gap-1.5 font-normal">
+                  {b.label}
+                  <span
+                    className={`font-mono ${
+                      b.value >= 0.8 ? "text-emerald-400" : "text-amber-400"
+                    }`}
+                  >
+                    {b.value.toFixed(3)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {b.group.strategy} · {b.group.correction ? "on" : "off"}
+                  </span>
+                </Badge>
+              ))}
+            </div>
+          )}
+          {groups.length < 6 && (
+            <p
+              role="status"
+              className="mb-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+            >
+              Partial matrix: {groups.length} of 6 strategy × correction combos
+              measured so far. The rest are pending an honest run — treat this as
+              work in progress, not a finished benchmark.
+            </p>
+          )}
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {groups.map((g) => (
             <Card key={`${g.strategy}-${g.correction}`}>
               <CardHeader className="pb-2">
@@ -119,21 +179,22 @@ export default function Scoreboard() {
               <CardContent className="space-y-3">
                 {METRICS.map((m) => (
                   <ScoreBar
-                    key={m.key as string}
+                    key={m.key}
                     label={m.label}
-                    value={g.metrics[m.key as string]}
+                    value={g.metrics[m.key]}
                   />
                 ))}
                 <ScoreBar
                   label="Latency"
-                  value={g.metrics.latency_ms as number | null}
+                  value={g.metrics.latency_ms ?? null}
                   suffix=" ms"
                   max={maxLatency}
                 />
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

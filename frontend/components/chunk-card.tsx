@@ -20,16 +20,18 @@ export function ChunkCard({
 
   return (
     <div
-      id={`chunk-${chunk.chunk_id}`}
-      className={`rounded-md border bg-muted/30 p-3 text-sm transition-shadow ${
+      data-chunk-id={chunk.chunk_id}
+      className={`rounded-md border bg-muted/30 p-3 text-sm transition-colors ${
         highlighted
-          ? "border-primary ring-2 ring-primary/40"
-          : "border-border/60"
+          ? "border-primary/70 ring-2 ring-primary/30 shadow-[0_0_28px_-8px] shadow-primary/50"
+          : "border-border/60 hover:border-border"
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{chunk.doc_title}</span>
-        <span className="text-xs text-muted-foreground">{chunk.chunk_id}</span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {chunk.chunk_id}
+        </span>
         {typeof chunk.rrf_score === "number" && (
           <Badge variant="outline" className="ml-auto font-mono text-[10px]">
             rrf {chunk.rrf_score.toFixed(4)}

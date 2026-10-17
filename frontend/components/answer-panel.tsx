@@ -23,12 +23,12 @@ export function AnswerPanel({
           const cite = match
             ? citations?.find((c) => c.ref === Number(match[1]))
             : undefined;
-          if (!cite) return <span key={i}>{part}</span>;
+          if (!cite || !onCitation) return <span key={i}>{part}</span>;
           return (
             <button
               key={i}
               type="button"
-              onClick={() => onCitation?.(cite.chunk_id)}
+              onClick={() => onCitation(cite.chunk_id)}
               className="rounded px-0.5 font-mono text-xs text-primary underline decoration-dotted underline-offset-2 hover:bg-primary/10"
               aria-label={`Show chunk ${cite.chunk_id} from ${cite.doc_title}`}
             >
@@ -45,19 +45,31 @@ export function AnswerPanel({
           <ul className="space-y-0.5 text-sm">
             {citations.map((c) => (
               <li key={c.ref}>
-                <button
-                  type="button"
-                  onClick={() => onCitation?.(c.chunk_id)}
-                  className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted/60"
-                >
-                  <Badge variant="outline" className="font-mono text-[10px]">
-                    [{c.ref}]
-                  </Badge>
-                  <span className="text-muted-foreground">{c.doc_title}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground/70">
-                    {c.chunk_id}
+                {onCitation ? (
+                  <button
+                    type="button"
+                    onClick={() => onCitation(c.chunk_id)}
+                    className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted/60"
+                  >
+                    <Badge variant="outline" className="font-mono text-[10px]">
+                      [{c.ref}]
+                    </Badge>
+                    <span className="text-muted-foreground">{c.doc_title}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground/70">
+                      {c.chunk_id}
+                    </span>
+                  </button>
+                ) : (
+                  <span className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left">
+                    <Badge variant="outline" className="font-mono text-[10px]">
+                      [{c.ref}]
+                    </Badge>
+                    <span className="text-muted-foreground">{c.doc_title}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground/70">
+                      {c.chunk_id}
+                    </span>
                   </span>
-                </button>
+                )}
               </li>
             ))}
           </ul>

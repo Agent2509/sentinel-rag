@@ -10,6 +10,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-geist-sans);
+  --font-display: var(--font-instrument);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,19 +50,19 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.995 0.004 162);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: oklch(1 0 0 / 72%);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(1 0 0 / 98%);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.53 0.13 150.6);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.965 0.008 162);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.965 0.008 162);
+  --muted-foreground: oklch(0.5 0.01 162);
+  --accent: oklch(0.95 0.014 162);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
@@ -86,20 +87,20 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.205 0.018 162 / 55%);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.19 0.015 162 / 98%);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary: oklch(0.76 0.16 162);
+  --primary-foreground: oklch(0.17 0.03 163);
+  --secondary: oklch(0.269 0.012 162);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.269 0.012 162);
+  --muted-foreground: oklch(0.72 0.012 162);
+  --accent: oklch(0.28 0.016 162);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --chart-1: oklch(0.87 0 0);
@@ -121,10 +122,117 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+  /* Background lives on <html>: <body> stays transparent so the fixed aurora
+     layer (z -10) shows through and the glass cards above it have something to
+     refract. */
   html {
-    @apply font-sans;
+    @apply font-sans bg-background;
+  }
+  body {
+    @apply text-foreground;
+  }
+
+  /* Frosted glass on every Card, so call sites keep using plain <Card>. */
+  [data-slot="card"] {
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    backdrop-filter: blur(14px) saturate(1.3);
+  }
+  /* a card inside a card: no second blur (mud + wasted GPU) */
+  [data-slot="card"] [data-slot="card"] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .dark [data-slot="card"] {
+    /* top edge highlight + faint sheen: "lit glass" even when no aurora
+       bloom sits behind the card */
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 8%);
+    background-image: linear-gradient(
+      180deg,
+      oklch(1 0 0 / 4%),
+      transparent 35%
+    );
+  }
+}
+
+/* Aurora backdrop: three soft blooms behind all content. Pure decoration. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.dark .aurora {
+  opacity: 1;
+}
+.aurora::before,
+.aurora::after,
+.aurora > span {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+}
+.aurora::before {
+  width: 70rem;
+  height: 42rem;
+  top: -22rem;
+  left: 50%;
+  margin-left: -35rem;
+  background: radial-gradient(
+    closest-side,
+    oklch(0.76 0.16 162 / 30%),
+    transparent
+  );
+  animation: aurora-drift-a 75s ease-in-out infinite alternate;
+}
+.aurora::after {
+  width: 52rem;
+  height: 36rem;
+  top: -12rem;
+  right: -14rem;
+  background: radial-gradient(
+    closest-side,
+    oklch(0.62 0.13 215 / 22%),
+    transparent
+  );
+  animation: aurora-drift-b 95s ease-in-out infinite alternate;
+}
+.aurora > span {
+  width: 46rem;
+  height: 34rem;
+  top: -6rem;
+  left: -16rem;
+  background: radial-gradient(
+    closest-side,
+    oklch(0.62 0.15 300 / 16%),
+    transparent
+  );
+  animation: aurora-drift-b 110s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes aurora-drift-a {
+  from {
+    transform: translate3d(-6%, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(6%, 4%, 0) scale(1.15);
+  }
+}
+@keyframes aurora-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-7%, 5%, 0) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora::before,
+  .aurora::after,
+  .aurora > span {
+    animation: none;
   }
 }
