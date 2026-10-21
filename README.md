@@ -1,6 +1,6 @@
 # Sentinel RAG
 
-[![CI](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/Agent2509/sentinel-rag/actions/workflows/ci.yml)
+[![CI](https://github.com/faizanali-ai/sentinel-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/faizanali-ai/sentinel-rag/actions/workflows/ci.yml)
 [![MIT](https://img.shields.io/badge/license-MIT-2ea44f.svg)](LICENSE)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
