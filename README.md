@@ -5,9 +5,14 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab.svg)](https://www.python.org/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
 
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.143-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.14_CPU-ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![FAISS](https://img.shields.io/badge/FAISS-CPU-blue.svg)](https://github.com/facebookresearch/faiss)
+[![Cross-Encoder](https://img.shields.io/badge/Cross--Encoder-MiniLM--L6-orange.svg)](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2)
+
 > "Most RAG systems fail silently. Mine knows when it's failing, fixes itself, and shows you the receipts."
 
-A locally hosted, self-correcting RAG laboratory. Ask a question and watch the answer get routed, retrieved, graded, rewritten with HyDE, and cited — with every step on screen. Three chunking strategies and a hybrid BM25 + FAISS retriever.
+A locally hosted, self-correcting RAG laboratory. Ask a question and watch the answer get routed, retrieved, graded, rewritten with HyDE, and cited — with every step on screen. Three chunking strategies, a hybrid BM25 + FAISS retriever, cross-encoder reranking, and an empirical evaluation harness.
 
 ## Screenshots
 
@@ -17,6 +22,16 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 |---|---|
 | ![Compare](docs/screenshots/ui-strategy-delta.png) | ![Ask in dark mode](docs/screenshots/ui-trace-dark.png) |
 
+## Why Sentinel RAG?
+
+| Dimension | Toy / Naive RAG | Sentinel RAG (Production) |
+|---|---|---|
+| **Chunking** | Arbitrary line counts that chop sentences in half | **3 Evaluated Strategies**: Fixed (512/50), Hierarchical (256/1024), Semantic (Percentile breakpoints) |
+| **Retrieval** | Single vector similarity search (misses exact keywords/acronyms) | **Hybrid Search**: BM25 + FAISS fused via Reciprocal Rank Fusion (RRF, $k=60$) |
+| **Precision Layer** | Accepts raw top-k vector distances | **Cross-Encoder Reranker** (`ms-marco-MiniLM-L-6-v2`) computing joint query-passage attention |
+| **Failure Handling** | Silent hallucinations on low-similarity context | **Self-Correcting Closed Loop**: LLM Grader + HyDE query rewrite + strict citation grounding |
+| **Evaluation** | Untested / "Vibe-based" | **Empirical Evaluation Harness**: 16 golden Q&A pairs scoring Precision, Recall, Faithfulness, Relevance |
+
 ## What it does
 
 - **Three chunkers, one corpus.** Fixed (512/50), hierarchical (256/1024), and semantic (percentile breakpoints) — switch per query and compare.
@@ -25,6 +40,29 @@ A locally hosted, self-correcting RAG laboratory. Ask a question and watch the a
 - **Self-correction.** An LLM grader scores the retrieved passages; a low score triggers a HyDE rewrite and a re-retrieve, capped at 2 retries.
 - **Receipts.** Every step streams to the UI over SSE and is stored in SQLite, with citations that jump to the source chunk.
 - **Empirical evaluation harness.** Reference evaluation harness testing 16 curated golden Q&A pairs measuring Context Precision, Context Recall, Faithfulness, and Answer Relevance with latency percentiles.
+
+## Repository Structure
+
+```text
+sentinel-rag/
+├── backend/
+│   ├── app/                 # FastAPI server, chunking strategies, hybrid search, reranker
+│   │   ├── chunkers/        # Fixed, Hierarchical (parent-child), and Semantic implementations
+│   │   ├── config.py        # Centralized tunable constants
+│   │   ├── reranker.py      # Cross-encoder singleton and scoring layer
+│   │   ├── retriever.py     # Hybrid BM25 + FAISS retrieval and RRF fusion
+│   │   ├── grader.py        # LLM passage relevance judge
+│   │   └── pipeline.py      # Step-by-step orchestrator with HyDE self-correction
+│   ├── data/                # Golden evaluation dataset (16 pairs) and empirical benchmark results
+│   ├── scripts/             # Empirical eval runner and deterministic self-checks
+│   └── tests/               # 25 automated pytest tests
+├── frontend/
+│   ├── app/                 # Next.js 16 App Router (Ask, Compare, Documents)
+│   ├── components/          # Real-time SSE trace steps, strategy delta, UI primitives
+│   └── hooks/               # Stream consumer with abort/reset guards
+├── docs/                    # Screenshots and architecture diagrams
+└── README.md
+```
 
 ## Quickstart
 
