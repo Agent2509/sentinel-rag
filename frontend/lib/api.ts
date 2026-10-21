@@ -14,6 +14,7 @@ export interface QueryBody {
   query: string;
   strategy: Strategy;
   correction_enabled: boolean;
+  rerank?: boolean;
 }
 
 /**

@@ -45,7 +45,7 @@ ingest.embed_documents = _fake_embed
 ingest.reindex(wait=True)
 
 
-def fake_stream(query, strategy="semantic", correction_enabled=True, trace_id=None):
+def fake_stream(query, strategy="semantic", correction_enabled=True, trace_id=None, rerank=True):
     tid = trace_id
     yield {
         "type": "step",

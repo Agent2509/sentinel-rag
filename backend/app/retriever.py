@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 import numpy as np
 
-from app import config
+from app import config, reranker
 from app.embeddings import embed_documents, embed_query
 from app.store import IndexBundle, load_strategy, tokenize
 
@@ -61,6 +61,7 @@ def hybrid_search(
     query: str,
     k_final: int = config.FINAL_TOP_K,
     as_query: bool = True,
+    rerank: bool = False,
 ) -> list[dict]:
     bundle = get_bundle(strategy)
     bm25_ids = bm25_search(bundle, query, config.BM25_TOP_K)
@@ -75,7 +76,9 @@ def hybrid_search(
     for idx, r in vector_rank.items():
         rrf[idx] = rrf.get(idx, 0.0) + 1.0 / (config.RRF_K + r + 1)
 
-    top = sorted(rrf.items(), key=lambda kv: kv[1], reverse=True)[:k_final]
+    # When reranking, take more candidate chunks from RRF to rerank down to k_final
+    candidate_k = max(k_final, config.RERANK_CANDIDATES_K) if rerank else k_final
+    top = sorted(rrf.items(), key=lambda kv: kv[1], reverse=True)[:candidate_k]
     results = []
     for idx, score in top:
         c = bundle.chunks[idx]
@@ -91,4 +94,7 @@ def hybrid_search(
                 "rrf_score": score,
             }
         )
+
+    if rerank and results:
+        return reranker.rerank(query, results, top_n=k_final)
     return results

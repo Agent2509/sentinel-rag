@@ -1,0 +1,7 @@
+strategy,rerank,queries_count,mean_context_precision,mean_context_recall,mean_faithfulness,mean_answer_relevance,latency_p50_ms,latency_p95_ms
+fixed,False,16,0.9792,0.909,0.7375,0.9131,15.5,2313.6
+fixed,True,16,0.9583,0.9108,0.75,0.9088,655.3,1820.7
+hierarchical,False,16,0.9052,0.8954,0.75,0.9128,15.2,23.4
+hierarchical,True,16,0.8479,0.8819,0.6,0.9128,305.6,370.9
+semantic,False,16,0.8331,0.8587,0.5906,0.9115,16.4,26.4
+semantic,True,16,0.9003,0.8607,0.6583,0.9081,277.4,526.5

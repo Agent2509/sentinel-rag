@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app import config, documents, embeddings, ingest, pipeline, trace_store
+from app import config, documents, embeddings, ingest, pipeline, reranker, trace_store
 from app.chunkers import token_count
 from app.store import indexes_exist
 
@@ -68,6 +68,7 @@ class QueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     strategy: str = "semantic"
     correction_enabled: bool = True
+    rerank: bool = config.DEFAULT_RERANK
 
 
 @asynccontextmanager
@@ -75,8 +76,9 @@ async def lifespan(app: FastAPI):
     trace_store.init_db()
     app.state.indexes_ok = indexes_exist()
     if app.state.indexes_ok:
-        # Warm the embedder off the event loop; boot returns immediately.
+        # Warm the embedder and reranker off the event loop; boot returns immediately.
         await asyncio.to_thread(embeddings.warmup)
+        await asyncio.to_thread(reranker.warmup)
     else:
         print("[startup] WARNING: indexes missing; run: python -m app.ingest")
     yield
@@ -111,6 +113,7 @@ async def _sse(req: QueryRequest, request: Request):
             "trace_id": trace_id,
             "strategy": req.strategy,
             "correction_enabled": req.correction_enabled,
+            "rerank": req.rerank,
         }
     )
 
@@ -120,7 +123,9 @@ async def _sse(req: QueryRequest, request: Request):
     disconnected = False
     t0 = time.perf_counter()
     async with _pipeline_sem:
-        gen = pipeline.stream(req.query, req.strategy, req.correction_enabled, trace_id)
+        gen = pipeline.stream(
+            req.query, req.strategy, req.correction_enabled, trace_id, rerank=req.rerank
+        )
         try:
             while True:
                 event = await asyncio.to_thread(_advance, gen)
@@ -150,6 +155,7 @@ async def _sse(req: QueryRequest, request: Request):
             "query": req.query,
             "strategy": req.strategy,
             "correction_enabled": req.correction_enabled,
+            "rerank": req.rerank,
             "steps": steps,
             "retries": 0,
             "final_status": "cancelled" if disconnected else "error",

@@ -28,6 +28,7 @@ _TRACE_CHUNK_KEYS = (
     "bm25_rank",
     "vector_rank",
     "rrf_score",
+    "rerank_score",
 )
 
 
@@ -49,6 +50,7 @@ def stream(
     strategy: str = "semantic",
     correction_enabled: bool = True,
     trace_id: str | None = None,
+    rerank: bool = config.DEFAULT_RERANK,
 ):
     if strategy not in config.STRATEGIES:
         raise ValueError(f"unknown strategy {strategy!r}; expected {config.STRATEGIES}")
@@ -63,6 +65,7 @@ def stream(
         "query": query,
         "strategy": strategy,
         "correction_enabled": correction_enabled,
+        "rerank": rerank,
         "steps": [],
         "retries": 0,
     }
@@ -106,7 +109,7 @@ def stream(
     # 2. initial retrieval
     t = time.perf_counter()
     try:
-        chunks = hybrid_search(strategy, query, k_final=k)
+        chunks = hybrid_search(strategy, query, k_final=k, rerank=rerank)
     except Exception as e:  # noqa: BLE001 - surface as an error trace
         yield finish("error", error=f"retrieval_failed: {type(e).__name__}")
         return
@@ -114,6 +117,7 @@ def stream(
         "retrieval",
         int(1000 * (time.perf_counter() - t)),
         query_used=query,
+        rerank=rerank,
         chunks=_public(chunks),
     )
 
@@ -172,7 +176,7 @@ def stream(
 
         t = time.perf_counter()
         try:
-            chunks = hybrid_search(strategy, doc, k_final=config.FINAL_TOP_K, as_query=False)
+            chunks = hybrid_search(strategy, doc, k_final=config.FINAL_TOP_K, as_query=False, rerank=rerank)
         except Exception as e:  # noqa: BLE001 - surface as an error trace
             yield finish(
                 "error",
@@ -184,6 +188,7 @@ def stream(
             "retrieval",
             int(1000 * (time.perf_counter() - t)),
             query_used="(embedded from hypothetical document)",
+            rerank=rerank,
             chunks=_public(chunks),
         )
         trace["retries"] += 1
@@ -220,10 +225,11 @@ def run(
     query: str,
     strategy: str = "semantic",
     correction_enabled: bool = True,
+    rerank: bool = config.DEFAULT_RERANK,
     trace_id: str | None = None,
 ) -> dict:
     last: dict | None = None
-    for event in stream(query, strategy, correction_enabled, trace_id):
+    for event in stream(query, strategy, correction_enabled, trace_id, rerank=rerank):
         last = event
     if last is None:
         raise RuntimeError("pipeline produced no events")
@@ -237,13 +243,19 @@ def main() -> None:
     parser.add_argument("query")
     parser.add_argument("--strategy", default="semantic", choices=config.STRATEGIES)
     parser.add_argument("--no-correction", action="store_true")
+    parser.add_argument("--no-rerank", action="store_true")
     args = parser.parse_args()
 
     if not indexes_exist():
         sys.exit("Indexes missing. Run: python -m app.ingest")
 
     try:
-        events = stream(args.query, args.strategy, not args.no_correction)
+        events = stream(
+            args.query,
+            args.strategy,
+            not args.no_correction,
+            rerank=not args.no_rerank,
+        )
         for event in events:
             if event["type"] == "step":
                 s = event["step"]

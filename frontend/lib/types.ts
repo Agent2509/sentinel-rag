@@ -11,6 +11,7 @@ export interface Chunk {
   bm25_rank?: number | null;
   vector_rank?: number | null;
   rrf_score?: number | null;
+  rerank_score?: number | null;
 }
 
 export interface Citation {
@@ -25,6 +26,7 @@ export interface Step {
   duration_ms: number;
   result?: { type: "simple" | "complex"; reason: string };
   query_used?: string;
+  rerank?: boolean;
   chunks?: Chunk[];
   grade?: {
     relevant: boolean;
@@ -43,6 +45,7 @@ export interface Trace {
   query: string;
   strategy: Strategy;
   correction_enabled: boolean;
+  rerank?: boolean;
   steps: Step[];
   final_status: FinalStatus;
   total_latency_ms: number;

@@ -1,0 +1,98 @@
+[
+  {
+    "id": "eval-01",
+    "query": "How does LoRA reduce the number of trainable parameters during fine-tuning?",
+    "ground_truth": "LoRA freezes the pretrained model weights and injects small trainable low-rank decomposition matrices alongside selected layers. The effective weight becomes the frozen original plus the product of two small matrices, reducing trainable parameters and optimizer memory by orders of magnitude.",
+    "doc_title": "lora_and_peft.md"
+  },
+  {
+    "id": "eval-02",
+    "query": "What is the difference between a cross-encoder reranker and a dual-encoder retriever?",
+    "ground_truth": "A dual-encoder embeds the query and passage independently into vector space for quick similarity matching, whereas a cross-encoder feeds the query and passage jointly through a transformer to compute a deep interaction score capturing fine-grained semantic alignment and negation.",
+    "doc_title": "reranking.md"
+  },
+  {
+    "id": "eval-03",
+    "query": "How does Reciprocal Rank Fusion (RRF) combine BM25 and vector search rankings?",
+    "ground_truth": "Reciprocal Rank Fusion ignores raw score magnitudes and assigns each document a score equal to the sum of 1 / (constant + rank) across both the BM25 and vector result lists, where the constant (typically 60) softens the influence of top ranks.",
+    "doc_title": "hybrid_search.md"
+  },
+  {
+    "id": "eval-04",
+    "query": "What problem does Hypothetical Document Embeddings (HyDE) solve in RAG?",
+    "ground_truth": "HyDE addresses vocabulary and structural mismatch between short user queries and long target documents by asking an LLM to generate a hypothetical answer document first, then embedding that document to retrieve semantically matching real passages.",
+    "doc_title": "hyde.md"
+  },
+  {
+    "id": "eval-05",
+    "query": "How does hierarchical parent-child chunking preserve context during generation?",
+    "ground_truth": "Hierarchical chunking indexes small child chunks (e.g. 256 tokens) for fine-grained retrieval match, but when a child chunk is retrieved, the larger parent chunk (e.g. 1024 tokens) is passed to the generator to provide complete surrounding context.",
+    "doc_title": "chunking_strategies.md"
+  },
+  {
+    "id": "eval-06",
+    "query": "What are the core metrics evaluated in the RAG triad?",
+    "ground_truth": "The core metrics in RAG evaluation include faithfulness (whether the generated answer is factually grounded in the retrieved context), answer relevance (whether the answer directly addresses the query), and context precision and recall.",
+    "doc_title": "rag_evaluation.md"
+  },
+  {
+    "id": "eval-07",
+    "query": "How do Query, Key, and Value vectors interact in scaled dot-product attention?",
+    "ground_truth": "Queries and keys compute dot products that measure alignment between positions, scaled by the square root of the head dimension. These scores pass through softmax to form attention weights that take a weighted sum over the value vectors.",
+    "doc_title": "attention_mechanism.md"
+  },
+  {
+    "id": "eval-08",
+    "query": "What role do residual connections play in the Transformer architecture?",
+    "ground_truth": "Residual connections add the block input directly to its sub-layer output, providing an uninterrupted gradient highway that prevents vanishing gradients and allows very deep transformer networks to train stably.",
+    "doc_title": "transformer_architecture.md"
+  },
+  {
+    "id": "eval-09",
+    "query": "How does Singular Value Decomposition (SVD) relate to dimensionality reduction?",
+    "ground_truth": "SVD factors any matrix into orthogonal singular vectors and singular values, revealing the principal axes of variation and allowing low-rank approximations that compress data and filter noise.",
+    "doc_title": "linear_algebra.md"
+  },
+  {
+    "id": "eval-10",
+    "query": "How does Bayes' theorem convert prior beliefs into posterior probabilities?",
+    "ground_truth": "Bayes' theorem updates a prior probability using the likelihood of observing evidence under each hypothesis, dividing by the total evidence probability to produce the revised posterior distribution.",
+    "doc_title": "probability_statistics.md"
+  },
+  {
+    "id": "eval-11",
+    "query": "What is the primary difference between weight-only quantization and weight-activation quantization?",
+    "ground_truth": "Weight-only quantization compresses stored model weights (e.g. to INT8 or INT4) to reduce memory bandwidth while keeping activation calculations in FP16, whereas weight-activation quantization quantizes both weights and activations to enable fast integer matrix multiply units.",
+    "doc_title": "quantization.md"
+  },
+  {
+    "id": "eval-12",
+    "query": "How does backpropagation use the chain rule to update neural network weights?",
+    "ground_truth": "Backpropagation computes the gradient of the loss with respect to each parameter by recursively applying the chain rule backward from the output layer through hidden layers to determine each weight's contribution to error.",
+    "doc_title": "backpropagation.md"
+  },
+  {
+    "id": "eval-13",
+    "query": "How does momentum improve standard stochastic gradient descent?",
+    "ground_truth": "Momentum accumulates an exponentially decaying moving average of past gradients and continues moving in that direction, dampening oscillations in steep ravines and accelerating convergence through flat regions.",
+    "doc_title": "gradient_descent.md"
+  },
+  {
+    "id": "eval-14",
+    "query": "Why does L1 regularization produce sparse weights compared to L2 weight decay?",
+    "ground_truth": "L1 regularization applies a constant penalty proportional to the absolute weight, driving less important weights exactly to zero, while L2 regularization penalizes squared magnitudes, shrinking weights smoothly without setting them strictly to zero.",
+    "doc_title": "regularization.md"
+  },
+  {
+    "id": "eval-15",
+    "query": "What is the difference between HNSW and IVF indexing in vector databases?",
+    "ground_truth": "HNSW constructs a hierarchical multi-layer proximity graph navigated via greedy routing with fast query latency, whereas IVF (Inverted File) partitions vector space into Voronoi cells and restricts searches only to the nearest cluster centroids.",
+    "doc_title": "vector_databases.md"
+  },
+  {
+    "id": "eval-16",
+    "query": "What is the ReAct loop and how does it interleave reasoning and action?",
+    "ground_truth": "The ReAct loop interleaves reasoning thoughts with tool action execution and observation steps, enabling an agent to dynamically plan, query external tools, observe outputs, and adjust its reasoning before answering.",
+    "doc_title": "react_pattern.md"
+  }
+]

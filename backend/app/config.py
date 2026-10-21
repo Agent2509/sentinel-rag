@@ -32,6 +32,11 @@ RRF_K = 60
 FINAL_TOP_K = 5
 SIMPLE_TOP_K = 3
 
+# Reranking
+RERANKER_MODEL = os.environ.get("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+RERANK_CANDIDATES_K = 15
+DEFAULT_RERANK = True
+
 # LLM provider (OpenAI-compatible). Router, grader, HyDE and generation all run on
 # Groq's gpt-oss-120b. It is a reasoning model, so max_tokens must leave room for
 # the hidden reasoning tokens before the visible output.
